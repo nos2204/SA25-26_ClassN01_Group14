@@ -1,7 +1,3 @@
-"""
-Layer 2 – Business Logic: Định nghĩa Student entity
-Được dùng xuyên suốt toàn bộ ứng dụng.
-"""
 
 class Student:
     """Đối tượng nghiệp vụ đại diện cho một sinh viên."""

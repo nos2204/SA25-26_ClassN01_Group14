@@ -1,1 +1,12 @@
-[]
+[
+    {
+        "student_id": "d",
+        "name": "x",
+        "gender": "Nam"
+    },
+    {
+        "student_id": "fđsf",
+        "name": "dvd",
+        "gender": "Nữ"
+    }
+]
