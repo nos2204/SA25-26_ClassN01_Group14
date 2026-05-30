@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row">
+    <div class="col-md-12 mb-3">
+        <h4>Bảng số liệu thống kê tổng quan (Dashboard)</h4>
+    </div>
+    <div class="col-md-6 col-sm-12 mb-3">
+        <div class="card bg-primary text-white p-4 shadow-sm">
+            <h6>Tổng số sinh viên lưu trữ trên MySQL</h6>
+            <h2>{{ total }} Học viên</h2>
+        </div>
+    </div>
+    <div class="col-md-6 col-sm-12 mb-3">
+        <div class="card bg-success text-white p-4 shadow-sm">
+            <h6>Học viên đạt học bổng (Xếp loại Giỏi)</h6>
+            <h2>{{ gioi }} Học viên</h2>
+        </div>
+    </div>
+</div>
+<div class="mt-3">
+    <a href="/export" class="btn btn-dark">Tải báo cáo Excel hệ thống</a>
+</div>
+{% endblock %}

@@ -1,252 +1,150 @@
-# app.py
-import json
 import os
-from flask import Flask, request, jsonify, render_template_string
+import sys
 
-app = Flask(__name__)
+# Lấy đường dẫn tuyệt đối của thư mục chứa file app.py này và ép vào bộ nhớ Python
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
-# Đường dẫn file để lưu trữ dữ liệu (Persistence)
-DB_FILE = 'students_data.json'
+# =========================================================================
+# 2. KHAI BÁO CÁC THƯ VIỆN HỆ THỐNG VÀ THƯ VIỆN BÊN THỨ BA
+# =========================================================================
+import jwt
+from datetime import datetime, timedelta
+from flask import Flask, render_template, request, redirect, url_for, session, flash, send_file
+from dotenv import load_dotenv
 
-def load_db():
-    """Tải dữ liệu từ file JSON, nếu chưa có thì tạo mới danh sách rỗng."""
-    if not os.path.exists(DB_FILE):
-        return []
-    with open(DB_FILE, 'r', encoding='utf-8') as f:
-        return json.load(f)
+# Nạp các thành phần từ mô hình 3 tầng độc lập của dự án
+from persistence.models import db, UserModel, StudentModel
+from business.student_service import StudentService
+from gateway import token_required, admin_required  # Bộ lọc kiểm soát của API Gateway
 
-def save_db(data):
-    """Lưu danh sách sinh viên vào file JSON."""
-    with open(DB_FILE, 'w', encoding='utf-8') as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
+# Tải cấu hình biến môi trường từ file .env theo đường dẫn tuyệt đối ổn định
+base_dir = os.path.dirname(os.path.abspath(__file__))
+# Tìm file .env ở thư mục hiện tại, nếu không có sẽ lùi ra thư mục cha ngoài cùng
+env_path = os.path.join(base_dir, '.env') if os.path.exists(os.path.join(base_dir, '.env')) else os.path.join(os.path.dirname(base_dir), '.env')
+load_dotenv(env_path)
 
-# Giao diện HTML hiện đại sử dụng Bootstrap 5
-HTML_INTERFACE = """
-<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hệ thống Quản lý Sinh viên Hoàn chỉnh</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <style>
-        body { background-color: #f8f9fa; }
-        .navbar { background-color: #004085; }
-        .card-header { font-weight: bold; text-transform: uppercase; }
-        .btn-action { padding: 0.25rem 0.5rem; font-size: 0.875rem; }
-    </style>
-</head>
-<body>
+# =========================================================================
+# 3. KHỞI TẠO VÀ CẤU HÌNH ỨNG DỤNG FLASK CÙNG MYSQL
+# =========================================================================
+app = Flask(__name__, template_folder='presentation/templates', static_folder='presentation/static')
 
-<nav class="navbar navbar-dark mb-4">
-    <div class="container">
-        <a class="navbar-brand" href="#"><i class="fas fa-user-graduate me-2"></i>HỆ THỐNG QUẢN LÝ SINH VIÊN</a>
-    </div>
-</nav>
+app.secret_key = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
 
-<div class="container">
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-primary text-white">
-                    <span id="formTitle">Thêm Sinh Viên Mới</span>
-                </div>
-                <div class="card-body">
-                    <form id="studentForm">
-                        <input type="hidden" id="edit_index" value="-1">
-                        <div class="mb-3">
-                            <label class="form-label">Mã Sinh Viên</label>
-                            <input type="text" id="student_id" class="form-control" placeholder="SV001" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Họ và Tên</label>
-                            <input type="text" id="name" class="form-control" placeholder="Nguyễn Văn A" required>
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Giới Tính</label>
-                            <select id="gender" class="form-select">
-                                <option value="Nam">Nam</option>
-                                <option value="Nữ">Nữ</option>
-                                <option value="Khác">Khác</option>
-                            </select>
-                        </div>
-                        <button type="submit" id="submitBtn" class="btn btn-success w-100">
-                            <i class="fas fa-save me-2"></i>Lưu Thông Tin
-                        </button>
-                        <button type="button" id="cancelBtn" class="btn btn-secondary w-100 mt-2 d-none" onclick="resetForm()">
-                            Hủy chỉnh sửa
-                        </button>
-                    </form>
-                </div>
-            </div>
-        </div>
+# Thiết lập cấu hình kết nối linh hoạt, tự động fallback nếu biến môi trường trống
+db_user = os.getenv('DB_USER', 'root')
+db_password = os.getenv('DB_PASSWORD', '')
+db_host = os.getenv('DB_HOST', 'localhost')
+db_name = os.getenv('DB_NAME', 'quanlidiemsinhvien')
 
-        <div class="col-md-8">
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    DANH SÁCH SINH VIÊN
-                    <div class="input-group input-group-sm w-50">
-                        <input type="text" id="searchInput" class="form-control" placeholder="Tìm theo tên hoặc mã...">
-                        <button class="btn btn-outline-light" type="button" onclick="loadStudents()"><i class="fas fa-search"></i></button>
-                    </div>
-                </div>
-                <div class="card-body p-0">
-                    <table class="table table-hover mb-0">
-                        <thead class="table-light">
-                            <tr>
-                                <th>Mã SV</th>
-                                <th>Họ Tên</th>
-                                <th>Giới Tính</th>
-                                <th class="text-center">Hành động</th>
-                            </tr>
-                        </thead>
-                        <tbody id="studentTableBody">
-                            </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql+mysqlconnector://{db_user}:{db_password}@{db_host}/{db_name}"
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+# Gắn kết database vào Flask
+db.init_app(app)
 
-<script>
-    const apiBase = '/api/students';
+# Hàm bổ trợ: Tự động tạo chuỗi mã hóa bảo mật Token JWT có thời hạn 2 giờ
+def generate_jwt_token(username, role):
+    payload = {
+        'exp': datetime.utcnow() + timedelta(hours=2),
+        'sub': username,
+        'role': role
+    }
+    return jwt.encode(payload, app.secret_key, algorithm='HS256')
 
-    // 1. Tải danh sách sinh viên
-    async function loadStudents() {
-        const search = document.getElementById('searchInput').value;
-        const response = await fetch(`${apiBase}?search=${encodeURIComponent(search)}`);
-        const students = await response.json();
+# =========================================================================
+# 4. TỰ ĐỘNG KHỞI TẠO CƠ SỞ DỮ LIỆU VÀ TÀI KHOẢN ADMIN MẶC ĐỊNH
+# =========================================================================
+@app.before_request
+def setup_db():
+    # Gỡ bỏ hàm khỏi danh sách chạy sau lần gọi đầu tiên để tối ưu hiệu năng
+    if setup_db in app.before_request_funcs.get(None, []):
+        app.before_request_funcs[None].remove(setup_db)
+    
+    try:
+        # Tự tạo bảng tự động dựa trên cấu trúc mô hình models.py
+        db.create_all()
         
-        const tbody = document.getElementById('studentTableBody');
-        tbody.innerHTML = '';
+        # Khởi tạo tài khoản quản trị viên tối cao ban đầu nếu database trống
+        if not UserModel.query.filter_by(username="admin").first():
+            admin = UserModel(username="admin", role="admin")
+            admin.set_password("admin123")  # Băm mật khẩu bảo mật trước khi lưu
+            db.session.add(admin)
+            db.session.commit()
+    except Exception as e:
+        print(f"====== [LỖI KẾT NỐI DATABASE]: Môi trường chưa khởi tạo cấu hình MySQL hoàn chỉnh. Chi tiết: {e} ======")
+
+# =========================================================================
+# 5. ĐỊNH TUYẾN CÁC ENDPOINTS URL (CONTROLLER LAYER)
+# =========================================================================
+
+# Trang đăng nhập xác thực tài khoản hệ thống (ĐÃ SỬA LỖI TRẢ VỀ CHO PHƯƠNG THỨC GET)
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
         
-        students.forEach((sv, index) => {
-            tbody.innerHTML += `
-                <tr>
-                    <td><strong>${sv.student_id}</strong></td>
-                    <td>${sv.name}</td>
-                    <td>${sv.gender}</td>
-                    <td class="text-center">
-                        <button class="btn btn-warning btn-action me-1" onclick="editStudent(${index})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button class="btn btn-danger btn-action" onclick="deleteStudent(${index})">
-                            <i class="fas fa-trash"></i>
-                        </button>
-                    </td>
-                </tr>
-            `;
-        });
-    }
+        user = UserModel.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            # Tạo Token JWT thực tế đẩy vào Session làm việc
+            session['token'] = generate_jwt_token(user.username, user.role)
+            session['username'] = user.username
+            session['role'] = user.role
+            flash("Xác thực cổng Gateway và Đăng nhập thành công!", "success")
+            return redirect(url_for('dashboard'))
+        
+        flash("Tài khoản hoặc mật khẩu không chính xác.", "danger")
+    
+    # Đảm bảo phương thức GET luôn trả về giao diện trang login công khai
+    return render_template('login.html')
 
-    // 2. Xử lý gửi Form (Thêm hoặc Cập nhật)
-    document.getElementById('studentForm').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const editIndex = parseInt(document.getElementById('edit_index').value);
-        const student = {
-            student_id: document.getElementById('student_id').value,
-            name: document.getElementById('name').value,
-            gender: document.getElementById('gender').value
-        };
-
-        const method = editIndex === -1 ? 'POST' : 'PUT';
-        const url = editIndex === -1 ? apiBase : `${apiBase}/${editIndex}`;
-
-        const response = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(student)
-        });
-
-        if (response.ok) {
-            resetForm();
-            loadStudents();
-        }
-    });
-
-    // 3. Xóa sinh viên
-    async function deleteStudent(index) {
-        if (confirm('Bạn có chắc chắn muốn xóa sinh viên này?')) {
-            await fetch(`${apiBase}/${index}`, { method: 'DELETE' });
-            loadStudents();
-        }
-    }
-
-    // 4. Chuẩn bị chỉnh sửa
-    async function editStudent(index) {
-        const response = await fetch(apiBase);
-        const students = await response.json();
-        const sv = students[index];
-
-        document.getElementById('student_id').value = sv.student_id;
-        document.getElementById('name').value = sv.name;
-        document.getElementById('gender').value = sv.gender;
-        document.getElementById('edit_index').value = index;
-
-        document.getElementById('formTitle').innerText = 'Chỉnh sửa sinh viên';
-        document.getElementById('submitBtn').classList.replace('btn-success', 'btn-warning');
-        document.getElementById('cancelBtn').classList.remove('d-none');
-    }
-
-    function resetForm() {
-        document.getElementById('studentForm').reset();
-        document.getElementById('edit_index').value = "-1";
-        document.getElementById('formTitle').innerText = 'Thêm Sinh Viên Mới';
-        document.getElementById('submitBtn').classList.replace('btn-warning', 'btn-success');
-        document.getElementById('cancelBtn').classList.add('d-none');
-    }
-
-    // Tải dữ liệu ban đầu
-    loadStudents();
-</script>
-</body>
-</html>
-"""
-
+# Trang chủ thống kê - Bắt buộc đi qua cổng kiểm duyệt API Gateway số 1
 @app.route('/')
-def home():
-    return render_template_string(HTML_INTERFACE)
+@token_required
+def dashboard():
+    total_stu = StudentModel.query.count()
+    gioi_stu = StudentModel.query.filter_by(academic_rank="Giỏi").count()
+    return render_template('dashboard.html', total=total_stu, gioi=gioi_stu)
 
-# API: Lấy danh sách (Có chức năng tìm kiếm)
-@app.route('/api/students', methods=['GET'])
-def get_students():
-    db = load_db()
-    search = request.args.get('search', '').lower()
-    if search:
-        db = [s for s in db if search in s['name'].lower() or search in s['student_id'].lower()]
-    return jsonify(db)
+# Hàm bổ trợ thêm sinh viên (được bọc bởi decorator kiểm tra quyền admin một cách tường minh)
+@admin_required
+def perform_add_student():
+    new_stu = StudentModel(
+        student_code=request.form.get('student_code'),
+        full_name=request.form.get('full_name'),
+        gender=request.form.get('gender')
+    )
+    db.session.add(new_stu)
+    db.session.commit()
+    flash("Thêm hồ sơ sinh viên mới vào MySQL thành công!", "success")
 
-# API: Thêm mới
-@app.route('/api/students', methods=['POST'])
-def add_student():
-    db = load_db()
-    db.append(request.json)
-    save_db(db)
-    return jsonify({'status': 'ok'}), 201
+# Trang quản lý danh sách Sinh viên - Tích hợp phân quyền API Gateway lớp 2
+@app.route('/students', methods=['GET', 'POST'])
+@token_required
+def students_manager():
+    if request.method == 'POST':
+        perform_add_student()
+        return redirect(url_for('students_manager'))
+        
+    students = StudentModel.query.all()
+    return render_template('students.html', students=students)
 
-# API: Cập nhật
-@app.route('/api/students/<int:index>', methods=['PUT'])
-def update_student(index):
-    db = load_db()
-    if 0 <= index < len(db):
-        db[index] = request.json
-        save_db(db)
-        return jsonify({'status': 'ok'})
-    return jsonify({'error': 'Not found'}), 404
+# Endpoint kết xuất báo cáo học tập định dạng tệp Excel từ Tầng Business
+@app.route('/export')
+@token_required
+def export_excel():
+    path = "baocao_sinhvien.xlsx"
+    StudentService.export_students_to_excel(path)
+    return send_file(path, as_attachment=True)
 
-# API: Xóa
-@app.route('/api/students/<int:index>', methods=['DELETE'])
-def delete_student(index):
-    db = load_db()
-    if 0 <= index < len(db):
-        db.pop(index)
-        save_db(db)
-        return jsonify({'status': 'ok'})
-    return jsonify({'error': 'Not found'}), 404
+# Hủy phiên làm việc, xóa sạch Token JWT
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
 
-if __name__ == "__main__":
+# Kích hoạt chạy Server máy chủ ở chế độ phát triển
+if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

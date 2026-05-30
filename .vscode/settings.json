@@ -1,0 +1,5 @@
+{
+    "python.analysis.extraPaths": [
+        "./student_grade_system/api_gateway"
+    ]
+}

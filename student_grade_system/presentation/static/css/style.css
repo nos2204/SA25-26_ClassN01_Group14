@@ -1,0 +1,70 @@
+/* presentation/static/css/style.css */
+
+/* Cấu hình phông chữ hệ thống chỉn chu */
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    color: #333;
+    background-color: #f8f9fa;
+}
+
+/* Tùy chỉnh thanh điều hướng Navbar */
+.navbar {
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+.navbar-brand {
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+/* Định dạng các khối Card chứa Form và Bảng */
+.card {
+    border: none;
+    border-radius: 10px;
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+.card:hover {
+    box-shadow: 0 8px 16px rgba(0,0,0,0.1) !important;
+}
+
+/* Định dạng bảng hiển thị danh sách sinh viên */
+.table {
+    border-radius: 8px;
+    overflow: hidden;
+}
+.table thead {
+    background-color: #212529;
+    color: #fff;
+}
+.table-responsive {
+    border-radius: 8px;
+    box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+}
+
+/* Định dạng các thông báo Alert lỗi/thành công */
+.alert {
+    border: none;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+/* 📱 CSS RESPONSIVE: Tối ưu hiển thị đặc thù trên màn hình di động nhỏ (< 768px) */
+@media (max-width: 767.98px) {
+    .container {
+        padding-left: 15px;
+        padding-right: 15px;
+    }
+    h4, h3 {
+        font-size: 1.25rem;
+        text-align: center;
+    }
+    .card {
+        margin-bottom: 20px;
+    }
+    /* Biến các badge trạng thái xếp loại to rõ hơn dễ bấm chạm trên điện thoại */
+    .badge {
+        font-size: 0.85rem;
+        padding: 6px 10px;
+        display: block;
+        text-align: center;
+    }
+}
