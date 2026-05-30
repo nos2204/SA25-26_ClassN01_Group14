@@ -31,11 +31,9 @@ app = Flask(
 )
 
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
-app.config['SQLALCHEMY_DATABASE_URI'] = (
-    f"mysql+mysqlconnector://{os.getenv('DB_USER','root')}:"
-    f"{os.getenv('DB_PASSWORD','')}@{os.getenv('DB_HOST','localhost')}/"
-    f"{os.getenv('DB_NAME','quanlidiemsinhvien')}"
-)
+
+# --- THAY ĐỔI TẠI ĐÂY: Chuyển cấu hình kết nối từ MySQL sang SQLite ---
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///student.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
 db.init_app(app)

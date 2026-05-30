@@ -90,4 +90,63 @@
                     </tbody>
                 </table>
                 {% else %}
-                <div class="text
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-info-circle fs-3"></i>
+                    <p class="mt-2">Chưa có dữ liệu điểm. Hãy nhập điểm cho sinh viên.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const ctx = document.getElementById('rankChart');
+    if (!ctx) return;
+
+    // Sử dụng JSON.parse và filter tojson để loại bỏ 27 lỗi kiểm tra cú pháp trên VS Code
+    const data = [
+        JSON.parse('{{ gioi | default(0) | tojson }}'),
+        JSON.parse('{{ kha   | default(0) | tojson }}'),
+        JSON.parse('{{ tb    | default(0) | tojson }}'),
+        JSON.parse('{{ yeu   | default(0) | tojson }}')
+    ];
+
+    const isEmpty = data.every(function(v) { return v === 0; });
+
+    new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: ['Giỏi', 'Khá', 'Trung bình', 'Yếu'],
+            datasets: [{
+                data: isEmpty ? [1] : data,
+                backgroundColor: isEmpty
+                    ? ['#dee2e6']
+                    : ['#198754', '#0d6efd', '#ffc107', '#dc3545'],
+                borderWidth: isEmpty ? 0 : 2,
+            }]
+        },
+        options: {
+            cutout: '60%',
+            plugins: {
+                legend: { position: 'bottom' },
+                tooltip: {
+                    callbacks: {
+                        label: function(item) {
+                            if (isEmpty) return ' Chưa có dữ liệu';
+                            const total = data.reduce(function(a, b) { return a + b; }, 0);
+                            const pct   = total ? Math.round(item.raw / total * 100) : 0;
+                            return ' ' + item.label + ': ' + item.raw + ' SV (' + pct + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}
