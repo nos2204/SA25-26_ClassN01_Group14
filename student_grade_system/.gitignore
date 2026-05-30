@@ -1,0 +1,19 @@
+# Thông tin nhạy cảm — KHÔNG được commit
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+.venv/
+venv/
+env/
+
+# Output
+*.xlsx
+*.csv
+
+# IDE
+.vscode/
+.idea/
+*.swp

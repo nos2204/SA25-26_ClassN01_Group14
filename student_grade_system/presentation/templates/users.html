@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Quản lý Tài khoản — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <!-- Form tạo tài khoản mới -->
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-person-plus me-2"></i>Tạo tài khoản mới
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_user') }}">
+                    <div class="mb-3">
+                        <label class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
+                        <input type="text" name="username" class="form-control" required
+                               placeholder="VD: sv001">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Mật khẩu <span class="text-danger">*</span></label>
+                        <input type="password" name="password" class="form-control" required
+                               placeholder="Tối thiểu 6 ký tự">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Vai trò</label>
+                        <select name="role" class="form-select">
+                            <option value="student">Student</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Liên kết hồ sơ sinh viên</label>
+                        <select name="student_id" class="form-select">
+                            <option value="">-- Không liên kết --</option>
+                            {% for sv in students_no_account %}
+                            <option value="{{ sv.id }}">{{ sv.full_name }} ({{ sv.student_code }})</option>
+                            {% endfor %}
+                        </select>
+                        <div class="form-text">Chỉ sinh viên chưa có tài khoản mới hiển thị.</div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save me-1"></i>Tạo tài khoản
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Danh sách tài khoản -->
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-person-gear me-2"></i>Danh sách Tài khoản
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Tên đăng nhập</th>
+                            <th>Vai trò</th>
+                            <th>Liên kết SV</th>
+                            <th>Ngày tạo</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for u in users %}
+                        <tr>
+                            <td>{{ u.username }}</td>
+                            <td>
+                                <span class="badge bg-{% if u.role == 'admin' %}danger{% else %}secondary{% endif %}">
+                                    {{ u.role }}
+                                </span>
+                            </td>
+                            <td>
+                                {% if u.student %}
+                                    {{ u.student.full_name }}
+                                    <small class="text-muted">({{ u.student.student_code }})</small>
+                                {% else %}
+                                    <span class="text-muted">—</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-muted small">
+                                {{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}
+                            </td>
+                            <td class="text-center">
+                                <!-- Đặt lại mật khẩu -->
+                                <button class="btn btn-outline-warning btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#resetModal"
+                                        data-uid="{{ u.id }}"
+                                        data-uname="{{ u.username }}"
+                                        title="Đặt lại mật khẩu">
+                                    <i class="bi bi-key"></i>
+                                </button>
+                                <!-- Xóa -->
+                                {% if u.username != 'admin' %}
+                                <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
+                                      class="d-inline"
+                                      onsubmit="return confirm('Xóa tài khoản {{ u.username }}?')">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal đặt lại mật khẩu -->
+<div class="modal fade" id="resetModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Đặt lại mật khẩu</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="resetForm">
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Tài khoản: <strong id="modalUname"></strong></p>
+                    <div class="mb-2">
+                        <label class="form-label">Mật khẩu mới</label>
+                        <input type="password" name="new_password" class="form-control" required
+                               placeholder="Tối thiểu 6 ký tự">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-warning btn-sm">
+                        <i class="bi bi-key me-1"></i>Đặt lại
+                    </button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('resetModal').addEventListener('show.bs.modal', function(e) {
+    const btn    = e.relatedTarget;
+    const uid    = btn.getAttribute('data-uid');
+    const uname  = btn.getAttribute('data-uname');
+    document.getElementById('modalUname').textContent = uname;
+    document.getElementById('resetForm').action = '/users/' + uid + '/reset_password';
+});
+</script>
+{% endblock %}
