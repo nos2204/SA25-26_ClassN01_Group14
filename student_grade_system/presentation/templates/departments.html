@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}Quản lý Khoa / Ngành — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-plus-circle me-2"></i>Thêm khoa / ngành mới
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_department') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Mã khoa <span class="text-danger">*</span></label>
+                        <input type="text" name="department_code" class="form-control" required placeholder="VD: CNTT">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Tên khoa <span class="text-danger">*</span></label>
+                        <input type="text" name="department_name" class="form-control" required
+                               placeholder="VD: Công nghệ Thông tin">
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save me-1"></i>Lưu
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold d-flex justify-content-between">
+                <span><i class="bi bi-building me-2"></i>Danh sách Khoa / Ngành</span>
+                <span class="badge bg-secondary">{{ departments|length }} khoa</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Mã khoa</th><th>Tên khoa / ngành</th>
+                            <th class="text-center">SV</th><th class="text-center">Môn học</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if departments %}
+                            {% for dept in departments %}
+                            <tr>
+                                <td><code>{{ dept.department_code }}</code></td>
+                                <td>{{ dept.department_name }}</td>
+                                <td class="text-center">{{ dept.students|length }}</td>
+                                <td class="text-center">{{ dept.subjects|length }}</td>
+                                <td class="text-center">
+                                    <form method="POST" action="{{ url_for('delete_department', dept_id=dept.id) }}"
+                                          onsubmit="return confirm('Xóa khoa {{ dept.department_name }}?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3"></i>
+                                <p class="mt-1 mb-0">Chưa có khoa nào.</p>
+                            </td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

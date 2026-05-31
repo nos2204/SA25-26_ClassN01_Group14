@@ -1,0 +1,42 @@
+{% extends 'base.html' %}
+{% block title %}Import Sinh viên — QLSV{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-7">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-upload me-2"></i>Import danh sách sinh viên từ CSV
+            </div>
+            <div class="card-body">
+                <div class="alert alert-info">
+                    <strong>Định dạng file CSV:</strong><br>
+                    Hàng đầu tiên là tiêu đề, các cột bao gồm:<br>
+                    <code>student_code, full_name, gender, email, phone, class_name, date_of_birth</code><br>
+                    <small class="text-muted">Chỉ <code>student_code</code> và <code>full_name</code> là bắt buộc.
+                    Ngày sinh định dạng <code>YYYY-MM-DD</code>. Mã SV trùng sẽ bị bỏ qua.</small>
+                </div>
+                <a href="data:text/csv;charset=utf-8,student_code%2Cfull_name%2Cgender%2Cemail%2Cphone%2Cclass_name%2Cdate_of_birth%0ASV001%2CNguy%E1%BB%85n+V%C4%83n+A%2CNam%2Ca%40email.com%2C0901234567%2CCNTT01%2C2003-05-15"
+                   download="mau_import_sv.csv" class="btn btn-outline-secondary btn-sm mb-3">
+                    <i class="bi bi-download me-1"></i>Tải file mẫu CSV
+                </a>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Chọn file CSV <span class="text-danger">*</span></label>
+                        <input type="file" name="csv_file" accept=".csv" class="form-control" required>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-upload me-1"></i>Import ngay
+                        </button>
+                        <a href="{{ url_for('students_manager') }}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i>Quay lại
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

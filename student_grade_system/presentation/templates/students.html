@@ -3,21 +3,29 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h4 class="mb-0"><i class="bi bi-people me-2"></i>Danh sách Sinh viên
+    <h4 class="mb-0">
+        <i class="bi bi-people me-2"></i>Danh sách Sinh viên
         <span class="badge bg-secondary ms-1">{{ total }}</span>
     </h4>
     {% if session.get('role') == 'admin' %}
-    <a href="{{ url_for('add_student') }}" class="btn btn-primary btn-sm">
-        <i class="bi bi-person-plus me-1"></i>Thêm sinh viên
-    </a>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('import_students') }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-upload me-1"></i>Import CSV
+        </a>
+        <a href="{{ url_for('export_excel') }}" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
+        </a>
+        <a href="{{ url_for('add_student') }}" class="btn btn-primary btn-sm">
+            <i class="bi bi-person-plus me-1"></i>Thêm sinh viên
+        </a>
+    </div>
     {% endif %}
 </div>
 
-<!-- Thanh tìm kiếm & lọc -->
 <div class="card shadow-sm mb-3">
     <div class="card-body py-2">
         <form method="GET" class="row g-2 align-items-end">
-            <div class="col-12 col-md-5">
+            <div class="col-12 col-md-4">
                 <input type="text" name="q" class="form-control form-control-sm"
                        placeholder="Tìm theo tên, MSSV, lớp..." value="{{ keyword }}">
             </div>
@@ -36,7 +44,18 @@
                     {% endfor %}
                 </select>
             </div>
-            <div class="col-12 col-md-3 d-flex gap-2">
+            <div class="col-6 col-md-2">
+                <select name="department_id" class="form-select form-select-sm">
+                    <option value="">-- Khoa --</option>
+                    {% for dept in departments %}
+                    <option value="{{ dept.id }}"
+                        {% if department_id|string == dept.id|string %}selected{% endif %}>
+                        {{ dept.department_name }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-2 d-flex gap-2">
                 <button type="submit" class="btn btn-primary btn-sm flex-fill">
                     <i class="bi bi-search me-1"></i>Tìm
                 </button>
@@ -48,7 +67,6 @@
     </div>
 </div>
 
-<!-- Bảng danh sách -->
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -58,12 +76,11 @@
                         <th>MSSV</th>
                         <th>Họ và Tên</th>
                         <th>Lớp</th>
+                        <th>Khoa</th>
                         <th>Giới tính</th>
                         <th>GPA</th>
                         <th>Học lực</th>
-                        {% if session.get('role') == 'admin' %}
                         <th class="text-center">Thao tác</th>
-                        {% endif %}
                     </tr>
                 </thead>
                 <tbody>
@@ -73,6 +90,11 @@
                             <td><code>{{ s.student_code }}</code></td>
                             <td>{{ s.full_name }}</td>
                             <td>{{ s.class_name or '—' }}</td>
+                            <td>
+                                {% if s.department %}
+                                    <span class="badge bg-light text-dark border">{{ s.department.department_code }}</span>
+                                {% else %}—{% endif %}
+                            </td>
                             <td>{{ s.gender }}</td>
                             <td>
                                 {% if s.gpa > 0 %}
@@ -90,13 +112,17 @@
                                     {{ s.academic_rank }}
                                 </span>
                             </td>
-                            {% if session.get('role') == 'admin' %}
                             <td class="text-center">
                                 <div class="btn-group btn-group-sm">
                                     <a href="{{ url_for('manage_grades', student_id=s.id) }}"
-                                       class="btn btn-outline-info" title="Nhập điểm">
+                                       class="btn btn-outline-info" title="Xem/nhập điểm">
                                         <i class="bi bi-pencil-square"></i>
                                     </a>
+                                    <a href="{{ url_for('export_transcript_pdf', student_id=s.id) }}"
+                                       class="btn btn-outline-secondary" title="Xuất PDF bảng điểm">
+                                        <i class="bi bi-file-earmark-pdf"></i>
+                                    </a>
+                                    {% if session.get('role') == 'admin' %}
                                     <a href="{{ url_for('edit_student', student_id=s.id) }}"
                                        class="btn btn-outline-warning" title="Sửa hồ sơ">
                                         <i class="bi bi-person-lines-fill"></i>
@@ -104,18 +130,19 @@
                                     <form method="POST"
                                           action="{{ url_for('delete_student', student_id=s.id) }}"
                                           onsubmit="return confirm('Xóa sinh viên {{ s.full_name }}? Toàn bộ điểm sẽ bị xóa theo!')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                                         <button type="submit" class="btn btn-outline-danger" title="Xóa">
                                             <i class="bi bi-trash"></i>
                                         </button>
                                     </form>
+                                    {% endif %}
                                 </div>
                             </td>
-                            {% endif %}
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td colspan="7" class="text-center text-muted py-4">
+                            <td colspan="8" class="text-center text-muted py-4">
                                 <i class="bi bi-inbox fs-3"></i>
                                 <p class="mt-1 mb-0">Không tìm thấy sinh viên nào.</p>
                             </td>
@@ -127,22 +154,21 @@
     </div>
 </div>
 
-<!-- Phân trang -->
 {% if total_pages > 1 %}
 <nav class="mt-3">
     <ul class="pagination pagination-sm justify-content-center">
         <li class="page-item {% if page == 1 %}disabled{% endif %}">
-            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&page={{ page-1 }}">
+            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&department_id={{ department_id }}&page={{ page-1 }}">
                 <i class="bi bi-chevron-left"></i>
             </a>
         </li>
         {% for p in range(1, total_pages+1) %}
         <li class="page-item {% if p == page %}active{% endif %}">
-            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&page={{ p }}">{{ p }}</a>
+            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&department_id={{ department_id }}&page={{ p }}">{{ p }}</a>
         </li>
         {% endfor %}
         <li class="page-item {% if page == total_pages %}disabled{% endif %}">
-            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&page={{ page+1 }}">
+            <a class="page-link" href="?q={{ keyword }}&gender={{ gender }}&rank={{ rank }}&department_id={{ department_id }}&page={{ page+1 }}">
                 <i class="bi bi-chevron-right"></i>
             </a>
         </li>

@@ -1,0 +1,12 @@
+{% extends 'base.html' %}
+{% block title %}404 — Không tìm thấy trang{% endblock %}
+{% block content %}
+<div class="text-center py-5">
+    <div class="display-1 fw-bold text-warning">404</div>
+    <h4 class="mt-2">Trang không tồn tại</h4>
+    <p class="text-muted">Đường dẫn bạn truy cập không tồn tại hoặc đã bị xoá.</p>
+    <a href="{{ url_for('dashboard') }}" class="btn btn-primary mt-2">
+        <i class="bi bi-house me-1"></i>Về Dashboard
+    </a>
+</div>
+{% endblock %}

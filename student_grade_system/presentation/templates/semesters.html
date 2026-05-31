@@ -1,0 +1,93 @@
+{% extends 'base.html' %}
+{% block title %}Quản lý Học kỳ — QLSV{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold">
+                <i class="bi bi-plus-circle me-2"></i>Thêm học kỳ mới
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_semester') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <div class="mb-3">
+                        <label class="form-label">Tên học kỳ <span class="text-danger">*</span></label>
+                        <select name="name" class="form-select" required>
+                            <option value="Học kỳ 1">Học kỳ 1</option>
+                            <option value="Học kỳ 2">Học kỳ 2</option>
+                            <option value="Học kỳ hè">Học kỳ hè</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Năm học <span class="text-danger">*</span></label>
+                        <input type="text" name="academic_year" class="form-control" required
+                               placeholder="VD: 2024-2025" pattern="\d{4}-\d{4}">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input class="form-check-input" type="checkbox" name="is_current" id="isCurrent">
+                        <label class="form-check-label" for="isCurrent">Đặt làm học kỳ hiện tại</label>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-save me-1"></i>Lưu
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header fw-semibold d-flex justify-content-between">
+                <span><i class="bi bi-calendar3 me-2"></i>Danh sách Học kỳ</span>
+                <span class="badge bg-secondary">{{ semesters|length }} học kỳ</span>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover table-striped mb-0 align-middle">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Học kỳ</th><th>Năm học</th>
+                            <th class="text-center">Hiện tại</th>
+                            <th class="text-center">Thao tác</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if semesters %}
+                            {% for sem in semesters %}
+                            <tr>
+                                <td>{{ sem.name }}</td>
+                                <td>{{ sem.academic_year }}</td>
+                                <td class="text-center">
+                                    {% if sem.is_current %}
+                                        <span class="badge bg-success">★ Hiện tại</span>
+                                    {% else %}
+                                        <form method="POST" action="{{ url_for('set_current_semester', sem_id=sem.id) }}" class="d-inline">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-success btn-sm">Đặt hiện tại</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <form method="POST" action="{{ url_for('delete_semester', sem_id=sem.id) }}"
+                                          onsubmit="return confirm('Xóa {{ sem.display_name }}?')">
+                                        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3"></i>
+                                <p class="mt-1 mb-0">Chưa có học kỳ nào.</p>
+                            </td></tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

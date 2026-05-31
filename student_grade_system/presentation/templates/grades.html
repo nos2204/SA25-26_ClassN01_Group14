@@ -7,12 +7,13 @@
         <h4 class="mb-0">
             <i class="bi bi-pencil-square me-2"></i>Bảng điểm — {{ student.full_name }}
         </h4>
-        <small class="text-muted">MSSV: {{ student.student_code }}
+        <small class="text-muted">
+            MSSV: {{ student.student_code }}
             {% if student.class_name %} | Lớp: {{ student.class_name }}{% endif %}
         </small>
     </div>
     <div class="text-end">
-        <div class="fs-4 fw-bold text-primary">GPA: {{ '%.2f'|format(student.gpa) }}</div>
+        <div class="fs-4 fw-bold text-primary">GPA toàn khoá: {{ '%.2f'|format(student.gpa) }}</div>
         <span class="badge
             {% if student.academic_rank == 'Giỏi' %}bg-success
             {% elif student.academic_rank == 'Khá' %}bg-primary
@@ -23,10 +24,39 @@
     </div>
 </div>
 
+<div class="card shadow-sm mb-3">
+    <div class="card-body py-2">
+        <form method="GET" class="row g-2 align-items-end">
+            <div class="col-md-5">
+                <label class="form-label small mb-1">Học kỳ đang xem</label>
+                <select name="semester_id" class="form-select form-select-sm" onchange="this.form.submit()">
+                    {% for sem in semesters %}
+                    <option value="{{ sem.id }}" {% if sem.id == sel_sem_id %}selected{% endif %}>
+                        {{ sem.display_name }}{% if sem.is_current %} ★{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <span class="badge bg-info text-dark ms-2 py-2">
+                    GPA kỳ này: {{ '%.2f'|format(sem_gpa) }}
+                </span>
+            </div>
+            <div class="col-auto ms-auto">
+                <a href="{{ url_for('export_transcript_pdf', student_id=student.id, semester_id=sel_sem_id) }}"
+                   class="btn btn-outline-secondary btn-sm">
+                    <i class="bi bi-file-earmark-pdf me-1"></i>Xuất PDF bảng điểm
+                </a>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% if subjects %}
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <form method="POST">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
             <div class="table-responsive">
                 <table class="table table-hover mb-0 align-middle">
                     <thead class="table-dark">
@@ -55,22 +85,16 @@
                                 <input type="number" name="progress_{{ subject.id }}"
                                        class="form-control form-control-sm grade-input text-center"
                                        style="width:80px;margin:auto"
-                                       min="0" max="10" step="0.1"
-                                       value="{{ pg }}">
-                                {% else %}
-                                    {{ pg }}
-                                {% endif %}
+                                       min="0" max="10" step="0.1" value="{{ pg }}">
+                                {% else %}{{ pg }}{% endif %}
                             </td>
                             <td class="text-center">
                                 {% if session.get('role') == 'admin' %}
                                 <input type="number" name="exam_{{ subject.id }}"
                                        class="form-control form-control-sm grade-input text-center"
                                        style="width:80px;margin:auto"
-                                       min="0" max="10" step="0.1"
-                                       value="{{ eg }}">
-                                {% else %}
-                                    {{ eg }}
-                                {% endif %}
+                                       min="0" max="10" step="0.1" value="{{ eg }}">
+                                {% else %}{{ eg }}{% endif %}
                             </td>
                             <td class="text-center fw-semibold
                                 {% if final >= 8.5 %}text-success

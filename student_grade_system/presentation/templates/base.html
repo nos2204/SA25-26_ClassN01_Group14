@@ -1,19 +1,83 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Hệ Thống Quản Lý Sinh Viên{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-</head>
-<body class="bg-light">
+    
+    <style>
+        /* Hiệu ứng chuyển màu mượt mà */
+        body, .navbar, .card, .dropdown-menu, table, td, th {
+            transition: background-color 0.25s ease, color 0.25s ease, border-color 0.25s ease !important;
+        }
 
-<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        /* 🟢 CẤU HÌNH KHI Ở CHẾ ĐỘ SÁNG (LIGHT MODE) */
+        [data-bs-theme="light"] body {
+            background-color: #f4f6f9 !important;
+        }
+        [data-bs-theme="light"] .navbar-custom {
+            background-color: #1e293b !important; /* Đổi sang màu xanh đen thanh lịch */
+        }
+        [data-bs-theme="light"] .navbar-custom .nav-link,
+        [data-bs-theme="light"] .navbar-custom .navbar-brand {
+            color: rgba(255, 255, 255, 0.85) !important;
+        }
+        [data-bs-theme="light"] .navbar-custom .nav-link.active {
+            color: #ffffff !important;
+            font-weight: 600;
+        }
+
+        /* 🔵 CẤU HÌNH KHI Ở CHẾ ĐỘ TỐI (DARK MODE) */
+        [data-bs-theme="dark"] body {
+            background-color: #0f111a !important; /* Đen sâu chuẩn màn hình AMOLED */
+        }
+        [data-bs-theme="dark"] .navbar-custom {
+            background-color: #161925 !important; /* Thanh menu tối đồng bộ */
+            border-bottom: 1px solid #23283b;
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: #161925 !important; /* Hộp chức năng tối */
+            border: 1px solid #23283b !important;
+        }
+        
+        /* Đảm bảo toàn bộ chữ và bảng biểu tương phản rõ nét tuyệt đối ở nền tối */
+        [data-bs-theme="dark"] .text-muted {
+            color: #94a3b8 !important; /* Chữ chú thích phụ sáng, dễ nhìn */
+        }
+        [data-bs-theme="dark"] .table-light {
+            --bs-table-bg: #1e2335 !important;
+            --bs-table-color: #ffffff !important;
+        }
+        [data-bs-theme="dark"] table, 
+        [data-bs-theme="dark"] td, 
+        [data-bs-theme="dark"] th, 
+        [data-bs-theme="dark"] h4, 
+        [data-bs-theme="dark"] label {
+            color: #f8fafc !important; /* Chữ tiêu đề và nội dung sáng trắng rõ ràng */
+            border-color: #23283b !important;
+        }
+        [data-bs-theme="dark"] .dropdown-menu {
+            background-color: #161925 !important;
+            border-color: #23283b !important;
+        }
+        [data-bs-theme="dark"] .dropdown-item {
+            color: #f8fafc !important;
+        }
+        [data-bs-theme="dark"] .dropdown-item:hover {
+            background-color: #23283b !important;
+        }
+    </style>
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-custom navbar-dark shadow-sm">
     <div class="container-fluid">
         <a class="navbar-brand fw-bold" href="{{ url_for('dashboard') }}">
-            <i class="bi bi-mortarboard-fill me-2"></i>QLSV System
+            <i class="bi bi-mortarboard-fill me-2 text-primary"></i>QLSV System
         </a>
         <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
             <span class="navbar-toggler-icon"></span>
@@ -29,17 +93,40 @@
                     </a>
                 </li>
                 <li class="nav-item">
-                    <a class="nav-link {% if 'student' in request.endpoint %}active{% endif %}"
+                    <a class="nav-link {% if 'student' in (request.endpoint or '') %}active{% endif %}"
                        href="{{ url_for('students_manager') }}">
                         <i class="bi bi-people me-1"></i>Sinh viên
                     </a>
                 </li>
+
                 {% if session.get('role') == 'admin' %}
-                <li class="nav-item">
-                    <a class="nav-link {% if request.endpoint == 'subjects_manager' %}active{% endif %}"
-                       href="{{ url_for('subjects_manager') }}">
-                        <i class="bi bi-journal-bookmark me-1"></i>Môn học
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle
+                        {% if request.endpoint in ['subjects_manager','semesters_manager','departments_manager'] %}active{% endif %}"
+                       href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-grid me-1"></i>Danh mục
                     </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('subjects_manager') }}">
+                            <i class="bi bi-journal-bookmark me-2"></i>Môn học</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('semesters_manager') }}">
+                            <i class="bi bi-calendar3 me-2"></i>Học kỳ</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('departments_manager') }}">
+                            <i class="bi bi-building me-2"></i>Khoa / Ngành</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle
+                        {% if request.endpoint in ['import_students','import_grades'] %}active{% endif %}"
+                       href="#" data-bs-toggle="dropdown">
+                        <i class="bi bi-upload me-1"></i>Import
+                    </a>
+                    <ul class="dropdown-menu">
+                        <li><a class="dropdown-item" href="{{ url_for('import_students') }}">
+                            <i class="bi bi-person-lines-fill me-2"></i>Import sinh viên (CSV)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('import_grades') }}">
+                            <i class="bi bi-table me-2"></i>Import điểm (CSV)</a></li>
+                    </ul>
                 </li>
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'users_manager' %}active{% endif %}"
@@ -48,14 +135,35 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'audit_log' %}active{% endif %}"
+                       href="{{ url_for('audit_log') }}">
+                        <i class="bi bi-clock-history me-1"></i>Nhật ký
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('export_excel') }}">
                         <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
                     </a>
                 </li>
                 {% endif %}
+
+                {% if session.get('role') == 'student' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'my_profile' %}active{% endif %}"
+                       href="{{ url_for('my_profile') }}">
+                        <i class="bi bi-person-circle me-1"></i>Hồ sơ của tôi
+                    </a>
+                </li>
+                {% endif %}
             </ul>
 
-            <ul class="navbar-nav ms-auto align-items-center">
+            <ul class="navbar-nav ms-auto align-items-center gap-2">
+                <li class="nav-item">
+                    <button class="btn btn-sm" id="themeToggleBtn" style="border: none; background: transparent;" title="Đổi giao diện">
+                        <i class="bi bi-moon-fill text-white fs-5" id="themeToggleIcon"></i>
+                    </button>
+                </li>
+                
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle me-1"></i>
@@ -65,19 +173,12 @@
                         </span>
                     </a>
                     <ul class="dropdown-menu dropdown-menu-end">
-                        <li>
-                            <a class="dropdown-item" href="{{ url_for('change_password') }}">
-                                <i class="bi bi-key me-2"></i>Đổi mật khẩu
-                            </a>
-                        </li>
+                        <li><a class="dropdown-item" href="{{ url_for('change_password') }}">
+                            <i class="bi bi-key me-2"></i>Đổi mật khẩu</a></li>
                         <li><hr class="dropdown-divider"></li>
-                        <li>
-                            <a class="dropdown-item text-danger"
-                               href="{{ url_for('logout') }}"
+                        <li><a class="dropdown-item text-danger" href="{{ url_for('logout') }}"
                                onclick="return confirm('Bạn có chắc muốn đăng xuất?')">
-                                <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất
-                            </a>
-                        </li>
+                            <i class="bi bi-box-arrow-right me-2"></i>Đăng xuất</a></li>
                     </ul>
                 </li>
             </ul>
@@ -92,17 +193,44 @@
             {% for category, msg in messages %}
                 <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
                     {{ msg }}
-                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <button type="button" class="btn-close" data-bs-alert="close" data-bs-dismiss="alert"></button>
                 </div>
             {% endfor %}
         {% endif %}
     {% endwith %}
-
     {% block content %}{% endblock %}
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<script>
+const toggleBtn = document.getElementById('themeToggleBtn');
+const toggleIcon = document.getElementById('themeToggleIcon');
+const rootHtml = document.documentElement;
+
+function updateTheme(theme) {
+    rootHtml.setAttribute('data-bs-theme', theme);
+    localStorage.setItem('theme', theme);
+    
+    if (theme === 'dark') {
+        toggleIcon.className = 'bi bi-sun-fill text-warning fs-5';
+    } else {
+        toggleIcon.className = 'bi bi-moon-fill text-white fs-5';
+    }
+}
+
+// Kiểm tra cấu hình cũ của người dùng
+const savedTheme = localStorage.getItem('theme') || 'light';
+updateTheme(savedTheme);
+
+toggleBtn.addEventListener('click', () => {
+    const activeTheme = rootHtml.getAttribute('data-bs-theme');
+    const newTheme = activeTheme === 'light' ? 'dark' : 'light';
+    updateTheme(newTheme);
+});
+</script>
+
 {% block scripts %}{% endblock %}
 </body>
 </html>

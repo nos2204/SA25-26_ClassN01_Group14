@@ -3,7 +3,6 @@
 
 {% block content %}
 <div class="row g-3">
-    <!-- Form thêm môn học -->
     <div class="col-md-4">
         <div class="card shadow-sm">
             <div class="card-header fw-semibold">
@@ -11,20 +10,27 @@
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('add_subject') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Mã môn học <span class="text-danger">*</span></label>
-                        <input type="text" name="subject_code" class="form-control" required
-                               placeholder="VD: INT1234">
+                        <input type="text" name="subject_code" class="form-control" required placeholder="VD: INT1234">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Tên môn học <span class="text-danger">*</span></label>
-                        <input type="text" name="subject_name" class="form-control" required
-                               placeholder="VD: Lập trình Python">
+                        <input type="text" name="subject_name" class="form-control" required placeholder="VD: Lập trình Python">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Số tín chỉ <span class="text-danger">*</span></label>
-                        <input type="number" name="credits" class="form-control" required
-                               min="1" max="6" value="3">
+                        <input type="number" name="credits" class="form-control" required min="1" max="6" value="3">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Khoa / Ngành</label>
+                        <select name="department_id" class="form-select">
+                            <option value="">— Chưa xác định —</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                            {% endfor %}
+                        </select>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-save me-1"></i>Lưu môn học
@@ -34,7 +40,6 @@
         </div>
     </div>
 
-    <!-- Danh sách môn học -->
     <div class="col-md-8">
         <div class="card shadow-sm">
             <div class="card-header fw-semibold d-flex justify-content-between">
@@ -45,9 +50,8 @@
                 <table class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-dark">
                         <tr>
-                            <th>Mã môn</th>
-                            <th>Tên môn học</th>
-                            <th class="text-center">Số TC</th>
+                            <th>Mã môn</th><th>Tên môn học</th>
+                            <th class="text-center">TC</th><th>Khoa</th>
                             <th class="text-center">Thao tác</th>
                         </tr>
                     </thead>
@@ -58,24 +62,36 @@
                                 <td><code>{{ s.subject_code }}</code></td>
                                 <td>{{ s.subject_name }}</td>
                                 <td class="text-center">{{ s.credits }}</td>
+                                <td>
+                                    {% if s.department %}
+                                    <span class="badge bg-light text-dark border">{{ s.department.department_code }}</span>
+                                    {% else %}—{% endif %}
+                                </td>
                                 <td class="text-center">
-                                    <form method="POST"
-                                          action="{{ url_for('delete_subject', subject_id=s.id) }}"
-                                          onsubmit="return confirm('Xóa môn {{ s.subject_name }}? Tất cả điểm liên quan sẽ bị xóa!')">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm">
-                                            <i class="bi bi-trash"></i>
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-warning"
+                                                data-bs-toggle="modal" data-bs-target="#editSubjectModal"
+                                                data-id="{{ s.id }}" data-name="{{ s.subject_name }}"
+                                                data-credits="{{ s.credits }}" data-dept="{{ s.department_id or '' }}"
+                                                title="Sửa">
+                                            <i class="bi bi-pencil"></i>
                                         </button>
-                                    </form>
+                                        <form method="POST" action="{{ url_for('delete_subject', subject_id=s.id) }}"
+                                              onsubmit="return confirm('Xóa môn {{ s.subject_name }}?')">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger" title="Xóa">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </div>
                                 </td>
                             </tr>
                             {% endfor %}
                         {% else %}
-                            <tr>
-                                <td colspan="4" class="text-center text-muted py-4">
-                                    <i class="bi bi-inbox fs-3"></i>
-                                    <p class="mt-1 mb-0">Chưa có môn học nào.</p>
-                                </td>
-                            </tr>
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3"></i>
+                                <p class="mt-1 mb-0">Chưa có môn học nào.</p>
+                            </td></tr>
                         {% endif %}
                     </tbody>
                 </table>
@@ -83,4 +99,56 @@
         </div>
     </div>
 </div>
+
+<div class="modal fade" id="editSubjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-pencil me-2"></i>Sửa môn học</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="POST" id="editSubjectForm" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Tên môn học <span class="text-danger">*</span></label>
+                        <input type="text" name="subject_name" id="editSubjectName" class="form-control" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Số tín chỉ <span class="text-danger">*</span></label>
+                        <input type="number" name="credits" id="editSubjectCredits" class="form-control" min="1" max="6" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Khoa / Ngành</label>
+                        <select name="department_id" id="editSubjectDept" class="form-select">
+                            <option value="">— Chưa xác định —</option>
+                            {% for dept in departments %}
+                            <option value="{{ dept.id }}">{{ dept.department_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Huỷ</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-save me-1"></i>Lưu thay đổi</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const editModal = document.getElementById('editSubjectModal');
+if (editModal) {
+    editModal.addEventListener('show.bs.modal', function(e) {
+        const btn = e.relatedTarget;
+        document.getElementById('editSubjectForm').action = '/subjects/' + btn.dataset.id + '/edit';
+        document.getElementById('editSubjectName').value   = btn.dataset.name;
+        document.getElementById('editSubjectCredits').value = btn.dataset.credits;
+        document.getElementById('editSubjectDept').value   = btn.dataset.dept;
+    });
+}
+</script>
 {% endblock %}

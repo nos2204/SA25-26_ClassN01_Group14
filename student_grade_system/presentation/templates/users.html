@@ -3,109 +3,115 @@
 
 {% block content %}
 <div class="row g-3">
-    <!-- Form tạo tài khoản mới -->
     <div class="col-md-4">
         <div class="card shadow-sm">
             <div class="card-header fw-semibold">
-                <i class="bi bi-person-plus me-2"></i>Tạo tài khoản mới
+                <i class="bi bi-plus-circle me-2"></i>Tạo tài khoản mới
             </div>
             <div class="card-body">
                 <form method="POST" action="{{ url_for('add_user') }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                     <div class="mb-3">
                         <label class="form-label">Tên đăng nhập <span class="text-danger">*</span></label>
-                        <input type="text" name="username" class="form-control" required
-                               placeholder="VD: sv001">
+                        <input type="text" name="username" class="form-control" required placeholder="VD: nguyenvana">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Mật khẩu <span class="text-danger">*</span></label>
-                        <input type="password" name="password" class="form-control" required
-                               placeholder="Tối thiểu 6 ký tự">
+                        <input type="password" name="password" class="form-control" required minlength="6" placeholder="Tối thiểu 6 ký tự">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">Vai trò</label>
                         <select name="role" class="form-select">
-                            <option value="student">Student</option>
+                            <option value="student">Sinh viên</option>
                             <option value="admin">Admin</option>
                         </select>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Liên kết hồ sơ sinh viên</label>
+                        <label class="form-label">Liên kết sinh viên</label>
                         <select name="student_id" class="form-select">
-                            <option value="">-- Không liên kết --</option>
+                            <option value="">— Không liên kết —</option>
                             {% for sv in students_no_account %}
-                            <option value="{{ sv.id }}">{{ sv.full_name }} ({{ sv.student_code }})</option>
+                            <option value="{{ sv.id }}">{{ sv.student_code }} – {{ sv.full_name }}</option>
                             {% endfor %}
                         </select>
-                        <div class="form-text">Chỉ sinh viên chưa có tài khoản mới hiển thị.</div>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-save me-1"></i>Tạo tài khoản
+                        <i class="bi bi-person-plus me-1"></i>Tạo tài khoản
                     </button>
                 </form>
             </div>
         </div>
     </div>
 
-    <!-- Danh sách tài khoản -->
     <div class="col-md-8">
         <div class="card shadow-sm">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-person-gear me-2"></i>Danh sách Tài khoản
+            <div class="card-header fw-semibold d-flex justify-content-between">
+                <span><i class="bi bi-people me-2"></i>Danh sách Tài khoản</span>
+                <span class="badge bg-secondary">{{ users|length }} tài khoản</span>
             </div>
             <div class="card-body p-0">
                 <table class="table table-hover table-striped mb-0 align-middle">
                     <thead class="table-dark">
                         <tr>
-                            <th>Tên đăng nhập</th>
-                            <th>Vai trò</th>
-                            <th>Liên kết SV</th>
-                            <th>Ngày tạo</th>
+                            <th>Tên đăng nhập</th><th>Vai trò</th>
+                            <th>Liên kết SV</th><th>Trạng thái</th>
                             <th class="text-center">Thao tác</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for u in users %}
-                        <tr>
-                            <td>{{ u.username }}</td>
-                            <td>
-                                <span class="badge bg-{% if u.role == 'admin' %}danger{% else %}secondary{% endif %}">
-                                    {{ u.role }}
-                                </span>
-                            </td>
-                            <td>
-                                {% if u.student %}
-                                    {{ u.student.full_name }}
-                                    <small class="text-muted">({{ u.student.student_code }})</small>
-                                {% else %}
-                                    <span class="text-muted">—</span>
-                                {% endif %}
-                            </td>
-                            <td class="text-muted small">
-                                {{ u.created_at.strftime('%d/%m/%Y') if u.created_at else '—' }}
-                            </td>
-                            <td class="text-center">
-                                <!-- Đặt lại mật khẩu -->
-                                <button class="btn btn-outline-warning btn-sm"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#resetModal"
-                                        data-uid="{{ u.id }}"
-                                        data-uname="{{ u.username }}"
-                                        title="Đặt lại mật khẩu">
-                                    <i class="bi bi-key"></i>
-                                </button>
-                                <!-- Xóa -->
-                                {% if u.username != 'admin' %}
-                                <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
-                                      class="d-inline"
-                                      onsubmit="return confirm('Xóa tài khoản {{ u.username }}?')">
-                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Xóa">
-                                        <i class="bi bi-trash"></i>
-                                    </button>
-                                </form>
-                                {% endif %}
-                            </td>
-                        </tr>
-                        {% endfor %}
+                        {% if users %}
+                            {% for u in users %}
+                            <tr>
+                                <td class="fw-semibold">{{ u.username }}</td>
+                                <td>
+                                    <span class="badge bg-{% if u.role == 'admin' %}danger{% else %}secondary{% endif %}">
+                                        {{ u.role }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if u.student %}
+                                        <small class="text-muted">
+                                            <code>{{ u.student.student_code }}</code> {{ u.student.full_name }}
+                                        </small>
+                                    {% else %}—{% endif %}
+                                </td>
+                                <td>
+                                    {% if u.is_locked() %}
+                                    <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bị khoá</span>
+                                    {% else %}
+                                    <span class="badge bg-success"><i class="bi bi-unlock-fill me-1"></i>Hoạt động</span>
+                                    {% endif %}
+                                    {% if u.failed_login_count > 0 and not u.is_locked() %}
+                                    <small class="text-muted ms-1">({{ u.failed_login_count }} lần sai)</small>
+                                    {% endif %}
+                                </td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm">
+                                        <button type="button" class="btn btn-outline-warning"
+                                                data-bs-toggle="modal" data-bs-target="#resetPwModal"
+                                                data-uid="{{ u.id }}" data-uname="{{ u.username }}"
+                                                title="Đặt lại mật khẩu">
+                                            <i class="bi bi-key"></i>
+                                        </button>
+                                        {% if u.username != 'admin' %}
+                                        <form method="POST" action="{{ url_for('delete_user', user_id=u.id) }}"
+                                              onsubmit="return confirm('Xóa tài khoản {{ u.username }}?')">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <button type="submit" class="btn btn-outline-danger" title="Xóa">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr><td colspan="5" class="text-center text-muted py-4">
+                                <i class="bi bi-inbox fs-3"></i>
+                                <p class="mt-1 mb-0">Chưa có tài khoản nào.</p>
+                            </td></tr>
+                        {% endif %}
                     </tbody>
                 </table>
             </div>
@@ -113,28 +119,23 @@
     </div>
 </div>
 
-<!-- Modal đặt lại mật khẩu -->
-<div class="modal fade" id="resetModal" tabindex="-1">
+<div class="modal fade" id="resetPwModal" tabindex="-1">
     <div class="modal-dialog modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Đặt lại mật khẩu</h5>
+                <h5 class="modal-title"><i class="bi bi-key me-2"></i>Đặt lại mật khẩu</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <form method="POST" id="resetForm">
+            <form method="POST" id="resetPwForm" action="">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
                 <div class="modal-body">
-                    <p class="text-muted mb-3">Tài khoản: <strong id="modalUname"></strong></p>
-                    <div class="mb-2">
-                        <label class="form-label">Mật khẩu mới</label>
-                        <input type="password" name="new_password" class="form-control" required
-                               placeholder="Tối thiểu 6 ký tự">
-                    </div>
+                    <p class="text-muted small mb-2">Đặt lại mật khẩu cho <strong id="resetPwUsername"></strong></p>
+                    <input type="password" name="new_password" class="form-control"
+                           required minlength="6" placeholder="Mật khẩu mới (≥6 ký tự)">
                 </div>
                 <div class="modal-footer">
-                    <button type="submit" class="btn btn-warning btn-sm">
-                        <i class="bi bi-key me-1"></i>Đặt lại
-                    </button>
-                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy</button>
+                    <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Huỷ</button>
+                    <button type="submit" class="btn btn-warning btn-sm"><i class="bi bi-save me-1"></i>Lưu</button>
                 </div>
             </form>
         </div>
@@ -144,12 +145,13 @@
 
 {% block scripts %}
 <script>
-document.getElementById('resetModal').addEventListener('show.bs.modal', function(e) {
-    const btn    = e.relatedTarget;
-    const uid    = btn.getAttribute('data-uid');
-    const uname  = btn.getAttribute('data-uname');
-    document.getElementById('modalUname').textContent = uname;
-    document.getElementById('resetForm').action = '/users/' + uid + '/reset_password';
-});
+const resetModal = document.getElementById('resetPwModal');
+if (resetModal) {
+    resetModal.addEventListener('show.bs.modal', function(e) {
+        const btn = e.relatedTarget;
+        document.getElementById('resetPwForm').action = '/users/' + btn.dataset.uid + '/reset_password';
+        document.getElementById('resetPwUsername').textContent = btn.dataset.uname;
+    });
+}
 </script>
 {% endblock %}

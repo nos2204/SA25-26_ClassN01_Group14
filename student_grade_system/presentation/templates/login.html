@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="vi">
+<html lang="vi" data-bs-theme="light">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,23 +7,29 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        body { background: #1a1a2e; min-height: 100vh; display:flex; align-items:center; }
-        .login-card { border:none; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
-        .brand-icon { font-size:3rem; color:#0d6efd; }
+        body { min-height: 100vh; display:flex; align-items:center; transition: background-color 0.3s ease; }
+        [data-bs-theme="light"] body { background: #f4f6f9; }
+        [data-bs-theme="dark"] body { background: #1a1a2e; }
+        .login-card { border:none; border-radius:16px; box-shadow:0 20px 60px rgba(0,0,0,0.15); transition: all 0.3s ease; }
+        .theme-toggle-btn { position: absolute; top: 20px; right: 20px; border-radius: 50%; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; }
     </style>
 </head>
 <body>
+
+<button class="btn btn-outline-secondary theme-toggle-btn" id="themeToggle">
+    <i class="bi bi-moon-fill" id="themeIcon"></i>
+</button>
+
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-5 col-sm-8">
             <div class="card login-card p-4">
                 <div class="text-center mb-4">
-                    <i class="bi bi-mortarboard-fill brand-icon"></i>
+                    <i class="bi bi-mortarboard-fill text-primary" style="font-size: 3rem;"></i>
                     <h4 class="fw-bold mt-2">Hệ thống QLSV</h4>
                     <p class="text-muted small">Vui lòng đăng nhập để tiếp tục</p>
                 </div>
 
-                <!-- Flash messages -->
                 {% with messages = get_flashed_messages(with_categories=true) %}
                     {% for category, msg in messages %}
                         <div class="alert alert-{{ category }} py-2 small">{{ msg }}</div>
@@ -35,18 +41,15 @@
                         <label class="form-label fw-semibold">Tên đăng nhập</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-person"></i></span>
-                            <input type="text" name="username" class="form-control"
-                                   placeholder="Nhập tên đăng nhập" required autofocus>
+                            <input type="text" name="username" class="form-control" placeholder="Nhập tên đăng nhập" required autofocus>
                         </div>
                     </div>
                     <div class="mb-4">
                         <label class="form-label fw-semibold">Mật khẩu</label>
                         <div class="input-group">
                             <span class="input-group-text"><i class="bi bi-lock"></i></span>
-                            <input type="password" name="password" id="pwdInput" class="form-control"
-                                   placeholder="Nhập mật khẩu" required>
-                            <button type="button" class="btn btn-outline-secondary"
-                                    onclick="togglePwd()">
+                            <input type="password" name="password" id="pwdInput" class="form-control" placeholder="Nhập mật khẩu" required>
+                            <button type="button" class="btn btn-outline-secondary" onclick="togglePwd()">
                                 <i class="bi bi-eye" id="eyeIcon"></i>
                             </button>
                         </div>
@@ -56,14 +59,13 @@
                     </button>
                 </form>
 
-                <p class="text-center text-muted small mt-3 mb-0">
-                    Tài khoản mặc định: <code>admin</code> / <code>admin123</code>
-                </p>
             </div>
         </div>
     </div>
 </div>
+
 <script>
+// Logic Ẩn/Hiện mật khẩu
 function togglePwd() {
     const inp  = document.getElementById('pwdInput');
     const icon = document.getElementById('eyeIcon');
@@ -73,6 +75,35 @@ function togglePwd() {
     } else {
         inp.type = 'password';
         icon.className = 'bi bi-eye';
+    }
+}
+
+// Logic quản lý chế độ Sáng/Tối
+const themeToggle = document.getElementById('themeToggle');
+const themeIcon = document.getElementById('themeIcon');
+const htmlEl = document.documentElement;
+
+// Đọc tùy chọn cũ từ bộ nhớ máy người dùng
+const savedTheme = localStorage.getItem('theme') || 'light';
+htmlEl.setAttribute('data-bs-theme', savedTheme);
+updateThemeIcon(savedTheme);
+
+themeToggle.addEventListener('click', () => {
+    const currentTheme = htmlEl.getAttribute('data-bs-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    
+    htmlEl.setAttribute('data-bs-theme', newTheme);
+    localStorage.setItem('theme', newTheme);
+    updateThemeIcon(newTheme);
+});
+
+function updateThemeIcon(theme) {
+    if (theme === 'dark') {
+        themeIcon.className = 'bi bi-sun-fill';
+        themeToggle.className = 'btn btn-outline-warning theme-toggle-btn';
+    } else {
+        themeIcon.className = 'bi bi-moon-fill';
+        themeToggle.className = 'btn btn-outline-secondary theme-toggle-btn';
     }
 }
 </script>
