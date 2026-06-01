@@ -9,7 +9,7 @@
         </h4>
         <small class="text-muted">
             MSSV: {{ student.student_code }}
-            {% if student.class_name %} | Lớp: {{ student.class_name }}{% endif %}
+            {% if student.display_class %} | Lớp: {{ student.display_class }}{% endif %}
         </small>
     </div>
     <div class="text-end">
@@ -66,6 +66,9 @@
                             <th class="text-center">Điểm QT (40%)</th>
                             <th class="text-center">Điểm thi (60%)</th>
                             <th class="text-center">Điểm tổng kết</th>
+                            <th class="text-center">Điểm chữ</th>
+                            <th class="text-center">Hệ 4</th>
+                            <th class="text-center">Kết quả</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -103,6 +106,9 @@
                                 {% elif g %}text-danger{% else %}text-muted{% endif %}">
                                 {% if g %}{{ final }}{% else %}—{% endif %}
                             </td>
+                            <td class="text-center">{% if g %}{{ g.letter_grade }}{% else %}—{% endif %}</td>
+                            <td class="text-center">{% if g %}{{ g.grade_point_4 }}{% else %}—{% endif %}</td>
+                            <td class="text-center">{% if g %}{% if g.is_passed %}<span class="badge bg-success">Đạt</span>{% else %}<span class="badge bg-danger">Rớt</span>{% endif %}{% else %}—{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

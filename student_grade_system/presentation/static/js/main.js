@@ -64,13 +64,12 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function calcFinalForRow(row) {
-        const pgInput = row.querySelector('input[name^="progress_"]');
-        const egInput = row.querySelector('input[name^="exam_"]');
+        const pgInput   = row.querySelector('input[name^="progress_"]');
+        const egInput   = row.querySelector('input[name^="exam_"]');
         const finalCell = row.querySelector('.final-live');
         if (!pgInput || !egInput || !finalCell) return;
-
-        const pg  = parseFloat(pgInput.value);
-        const eg  = parseFloat(egInput.value);
+        const pg = parseFloat(pgInput.value);
+        const eg = parseFloat(egInput.value);
         if (!isNaN(pg) && !isNaN(eg)) {
             const final = Math.round((pg * 0.4 + eg * 0.6) * 100) / 100;
             finalCell.textContent = final.toFixed(2);
@@ -136,5 +135,4 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     }
-
 });

@@ -1,48 +1,37 @@
 :root, [data-bs-theme="light"] {
     --body-bg: #f0f2f5;
-    --text-main: #0f172a !important;       /* Chữ chính: Đen thẫm */
-    --text-muted: #475569 !important;      /* Chữ phụ: Xám đậm hẳn lên */
+    --text-main: #0f172a !important;
+    --text-muted: #475569 !important;
     --card-bg: #ffffff;
     --card-header-bg: #f8fafc;
     --border-color: rgba(0, 0, 0, 0.12);
-    
-    /* Màu các cột số liệu/GPA ở chế độ Sáng */
-    --color-primary: #0254d8 !important;   /* Xanh dương đậm */
-    --color-success: #106a36 !important;   /* Xanh lá đậm */
-    --color-warning: #b45309 !important;   /* Vàng cam đậm */
-    --color-danger:  #c21d1d !important;   /* Đỏ đậm */
-    
-    /* Màu thanh tiêu đề bảng (#) */
+    --color-primary: #0254d8 !important;
+    --color-success: #106a36 !important;
+    --color-warning: #b45309 !important;
+    --color-danger:  #c21d1d !important;
     --table-header-bg: #e2e8f0 !important;
     --table-header-text: #0f172a !important;
 }
 
 [data-bs-theme="dark"] {
     --body-bg: #0f111a;
-    --text-main: #ffffff !important;       /* Chữ chính: Trắng tinh 100% */
-    --text-muted: #cbd5e1 !important;      /* Chữ phụ: Xám bạc sáng */
+    --text-main: #ffffff !important;
+    --text-muted: #cbd5e1 !important;
     --card-bg: #161925;
     --card-header-bg: #1e2335;
     --border-color: #24293e;
-
-    /* Màu các cột số liệu/GPA ở chế độ Tối */
-    --color-primary: #38bdf8 !important;   /* Xanh dương sáng */
-    --color-success: #4ade80 !important;   /* Xanh lá sáng */
-    --color-warning: #facc15 !important;   /* Vàng sáng */
-    --color-danger:  #f87171 !important;   /* Đỏ sáng */
-    
-    /* Màu thanh tiêu đề bảng (#) */
+    --color-primary: #38bdf8 !important;
+    --color-success: #4ade80 !important;
+    --color-warning: #facc15 !important;
+    --color-danger:  #f87171 !important;
     --table-header-bg: #1e2335 !important;
     --table-header-text: #ffffff !important;
 }
 
-/* =======================================================
-   ÉP ĐỒNG BỘ TOÀN BỘ CHỮ, KHÔNG CHO BOOTSTRAP GHI ĐÈ
-   ======================================================= */
 body, h4, div, p, span, td {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     color: var(--text-main) !important;
-    background-color: transparent; /* Để nền chạy theo Card hoặc Body */
+    background-color: transparent;
 }
 
 body {
@@ -50,19 +39,16 @@ body {
     transition: background-color 0.2s, color 0.2s !important;
 }
 
-/* Ép màu chữ số/GPA */
 .text-primary { color: var(--color-primary) !important; }
 .text-success { color: var(--color-success) !important; }
 .text-warning { color: var(--color-warning) !important; }
 .text-danger  { color: var(--color-danger) !important; }
 
-/* Ép màu chữ phụ nhỏ (Mã SV, Chú thích dưới ô số) */
 .text-muted, small.text-muted, .text-muted i {
     color: var(--text-muted) !important;
-    font-weight: 600 !important; /* Tăng độ đậm để dễ nhìn */
+    font-weight: 600 !important;
 }
 
-/* Định dạng Card */
 .card {
     border: 1px solid var(--border-color) !important;
     background-color: var(--card-bg) !important;
@@ -75,14 +61,11 @@ body {
     font-weight: 700 !important;
 }
 
-/* Định dạng Bảng dữ liệu */
-.table { 
+.table {
     color: var(--text-main) !important;
     background-color: transparent !important;
 }
-.table-header-custom {
-    background-color: var(--table-header-bg) !important;
-}
+.table-header-custom { background-color: var(--table-header-bg) !important; }
 .table-header-custom th {
     color: var(--table-header-text) !important;
     font-weight: 700 !important;
@@ -93,17 +76,18 @@ body {
     border-color: var(--border-color) !important;
 }
 
-/* Nhãn Xếp loại (Badge) */
-.badge { 
-    font-size: 0.8rem !important; 
+.badge {
+    font-size: 0.8rem !important;
     font-weight: 700 !important;
     padding: 6px 10px !important;
-    color: #ffffff !important; /* Chữ trong badge luôn trắng cho dễ đọc */
+    color: #ffffff !important;
 }
-/* Riêng nhãn màu vàng (Trung bình) thì chữ đen ở chế độ sáng */
 [data-bs-theme="light"] .bg-warning { color: #000000 !important; }
 
-/* Các thành phần phụ khác */
 .navbar { box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
 .navbar-brand { font-weight: 700; }
-.grade-input { background-color: var(--card-bg); color: var(--text-main); border: 1px solid var(--border-color); }
+.grade-input {
+    background-color: var(--card-bg);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+}

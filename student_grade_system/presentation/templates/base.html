@@ -102,7 +102,7 @@
                 {% if session.get('role') == 'admin' %}
                 <li class="nav-item dropdown">
                     <a class="nav-link dropdown-toggle
-                        {% if request.endpoint in ['subjects_manager','semesters_manager','departments_manager'] %}active{% endif %}"
+                        {% if request.endpoint in ['subjects_manager','semesters_manager','departments_manager','classes_manager','teachers_manager','course_sections_manager'] %}active{% endif %}"
                        href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-grid me-1"></i>Danh mục
                     </a>
@@ -113,6 +113,12 @@
                             <i class="bi bi-calendar3 me-2"></i>Học kỳ</a></li>
                         <li><a class="dropdown-item" href="{{ url_for('departments_manager') }}">
                             <i class="bi bi-building me-2"></i>Khoa / Ngành</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('classes_manager') }}">
+                            <i class="bi bi-diagram-3 me-2"></i>Lớp học</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('teachers_manager') }}">
+                            <i class="bi bi-person-workspace me-2"></i>Giảng viên</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('course_sections_manager') }}">
+                            <i class="bi bi-collection me-2"></i>Lớp học phần</a></li>
                     </ul>
                 </li>
                 <li class="nav-item dropdown">
@@ -141,13 +147,36 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'teacher_sections' %}active{% endif %}" href="{{ url_for('teacher_sections') }}">
+                        <i class="bi bi-pencil-square me-1"></i>Nhập điểm HP
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'enrollments_page' %}active{% endif %}" href="{{ url_for('enrollments_page') }}">
+                        <i class="bi bi-journal-plus me-1"></i>Đăng ký HP
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a class="nav-link" href="{{ url_for('export_excel') }}">
                         <i class="bi bi-file-earmark-excel me-1"></i>Xuất Excel
                     </a>
                 </li>
                 {% endif %}
 
+                {% if session.get('role') == 'teacher' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'teacher_sections' %}active{% endif %}" href="{{ url_for('teacher_sections') }}">
+                        <i class="bi bi-easel2 me-1"></i>Lớp tôi dạy
+                    </a>
+                </li>
+                {% endif %}
+
                 {% if session.get('role') == 'student' %}
+                <li class="nav-item">
+                    <a class="nav-link {% if request.endpoint == 'enrollments_page' %}active{% endif %}" href="{{ url_for('enrollments_page') }}">
+                        <i class="bi bi-journal-plus me-1"></i>Đăng ký HP
+                    </a>
+                </li>
                 <li class="nav-item">
                     <a class="nav-link {% if request.endpoint == 'my_profile' %}active{% endif %}"
                        href="{{ url_for('my_profile') }}">
@@ -168,7 +197,7 @@
                     <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                         <i class="bi bi-person-circle me-1"></i>
                         {{ session['username'] }}
-                        <span class="badge bg-{% if session['role'] == 'admin' %}danger{% else %}secondary{% endif %} ms-1">
+                        <span class="badge bg-{% if session['role'] == 'admin' %}danger{% elif session['role'] == 'teacher' %}primary{% else %}secondary{% endif %} ms-1">
                             {{ session['role'] }}
                         </span>
                     </a>

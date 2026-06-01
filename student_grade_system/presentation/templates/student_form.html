@@ -56,6 +56,15 @@
                                    placeholder="0901234567">
                         </div>
                         <div class="col-md-6">
+                            <label class="form-label">Lớp học</label>
+                            <select name="class_id" class="form-select">
+                                <option value="">— Chọn lớp —</option>
+                                {% for c in classes %}
+                                <option value="{{ c.id }}" {% if student and student.class_id == c.id %}selected{% endif %}>{{ c.class_code }} - {{ c.class_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-6">
                             <label class="form-label">Khoa / Ngành</label>
                             <select name="department_id" class="form-select">
                                 <option value="">— Chưa xác định —</option>

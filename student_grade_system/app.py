@@ -1,5 +1,6 @@
 import os
 import sys
+import tempfile
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
@@ -10,12 +11,15 @@ from datetime import datetime, timedelta
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, flash, send_file, jsonify, abort, g)
 from dotenv import load_dotenv
+from sqlalchemy import inspect as sa_inspect
 
 from persistence.models import (db, UserModel, StudentModel, SubjectModel,
                                  GradeModel, SemesterModel, AuditLog,
-                                 DepartmentModel)
+                                 DepartmentModel, ClassModel, TeacherModel,
+                                 CourseSectionModel, EnrollmentModel)
 from business.student_service import StudentService
 from gateway import (token_required, admin_required, admin_or_self_required,
+                     admin_or_teacher_required, teacher_required,
                      generate_csrf_token, validate_csrf,
                      check_brute_force, record_failed_login, record_success_login)
 
@@ -30,8 +34,7 @@ app = Flask(
 
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
 
-# --- ĐÃ CHỈNH SỬA: Ép kết nối thẳng vào MySQL Server của bạn ---
-app.config['SQLALCHEMY_DATABASE_URI'] = 'mysql+mysqlconnector://root@127.0.0.1:3306/quanlidiemsinhvien'
+app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///' + os.path.join(base_dir, 'instance', 'student.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 app.config['MAX_CONTENT_LENGTH'] = 5 * 1024 * 1024
 
@@ -56,6 +59,20 @@ def csrf_protect():
 
 _db_initialized = False
 
+
+def _add_column_if_missing(table_name, column_name, column_sql):
+    """Bổ sung cột cho database cũ. Chạy được với SQLite và MySQL."""
+    try:
+        inspector = sa_inspect(db.engine)
+        cols = [c['name'] for c in inspector.get_columns(table_name)]
+        if column_name not in cols:
+            db.session.execute(db.text(f"ALTER TABLE {table_name} ADD COLUMN {column_sql}"))
+            db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        print(f'[MIGRATION WARNING] {table_name}.{column_name}: {e}')
+
+
 @app.before_request
 def setup_db():
     global _db_initialized
@@ -63,33 +80,27 @@ def setup_db():
         return
     _db_initialized = True
     try:
-        # 1. Tạo bảng tự động theo cấu trúc Class Models
+        os.makedirs(os.path.join(base_dir, 'instance'), exist_ok=True)
         db.create_all()
-        
-        # 2. CẬP NHẬT: Tự động bổ sung các cột còn thiếu trực tiếp vào MySQL bằng SQL thuần
-        alter_queries = [
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id INT NULL;",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_count INT DEFAULT 0;",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS locked_until DATETIME NULL;",
-            "ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;",
-            "ALTER TABLE students ADD COLUMN IF NOT EXISTS gender VARCHAR(10) NULL;",
-            "ALTER TABLE students ADD COLUMN IF NOT EXISTS email VARCHAR(100) NULL;",
-            "ALTER TABLE students ADD COLUMN IF NOT EXISTS academic_rank VARCHAR(50) NULL;"
-        ]
-        
-        for query in alter_queries:
-            try:
-                db.session.execute(db.text(query))
-            except Exception:
-                # Phương án dự phòng nếu MySQL phiên bản cũ không nhận diện được cú pháp 'IF NOT EXISTS'
-                try:
-                    clean_query = query.replace("IF NOT EXISTS ", "")
-                    db.session.execute(db.text(clean_query))
-                except Exception:
-                    pass  # Nếu cột đã tồn tại rồi thì bỏ qua không báo lỗi bậy
-        db.session.commit()
 
-        # 3. Khởi tạo tài khoản admin và dữ liệu mẫu nếu chưa có
+        _add_column_if_missing('users', 'student_id', 'student_id INTEGER NULL')
+        _add_column_if_missing('users', 'teacher_id', 'teacher_id INTEGER NULL')
+        _add_column_if_missing('users', 'failed_login_count', 'failed_login_count INTEGER DEFAULT 0')
+        _add_column_if_missing('users', 'locked_until', 'locked_until DATETIME NULL')
+        _add_column_if_missing('users', 'created_at', 'created_at DATETIME')
+        _add_column_if_missing('students', 'gender', 'gender VARCHAR(10) NULL')
+        _add_column_if_missing('students', 'email', 'email VARCHAR(120) NULL')
+        _add_column_if_missing('students', 'phone', 'phone VARCHAR(20) NULL')
+        _add_column_if_missing('students', 'class_name', 'class_name VARCHAR(50) NULL')
+        _add_column_if_missing('students', 'class_id', 'class_id INTEGER NULL')
+        _add_column_if_missing('students', 'date_of_birth', 'date_of_birth DATE NULL')
+        _add_column_if_missing('students', 'address', 'address VARCHAR(255) NULL')
+        _add_column_if_missing('students', 'department_id', 'department_id INTEGER NULL')
+        _add_column_if_missing('students', 'gpa', 'gpa FLOAT DEFAULT 0')
+        _add_column_if_missing('students', 'academic_rank', 'academic_rank VARCHAR(20) DEFAULT \'Yếu\'')
+        _add_column_if_missing('subjects', 'department_id', 'department_id INTEGER NULL')
+        _add_column_if_missing('grades', 'semester_id', 'semester_id INTEGER NULL')
+
         if not UserModel.query.filter_by(username='admin').first():
             admin = UserModel(username='admin', role='admin')
             admin.set_password('admin123')
@@ -97,8 +108,16 @@ def setup_db():
         if not SemesterModel.query.first():
             sem = SemesterModel(name='Học kỳ 1', academic_year='2024-2025', is_current=True)
             db.session.add(sem)
+            db.session.commit()
+        current_sem = SemesterModel.query.filter_by(is_current=True).first() or SemesterModel.query.first()
+        if current_sem:
+            try:
+                db.session.execute(db.text('UPDATE grades SET semester_id = :sid WHERE semester_id IS NULL'), {'sid': current_sem.id})
+            except Exception:
+                pass
         db.session.commit()
     except Exception as e:
+        db.session.rollback()
         print(f'[LỖI DATABASE]: {e}')
 
 
@@ -142,6 +161,7 @@ def login():
             session['username']          = user.username
             session['role']              = user.role
             session['linked_student_id'] = user.student_id
+            session['linked_teacher_id'] = user.teacher_id
             flash('Đăng nhập thành công!', 'success')
             return redirect(url_for('dashboard'))
 
@@ -199,20 +219,36 @@ def students_manager():
     gender        = request.args.get('gender', '')
     rank          = request.args.get('rank', '')
     department_id = request.args.get('department_id', '')
+    class_id      = request.args.get('class_id', '')
     page          = request.args.get('page', 1, type=int)
 
     students, total_pages, total = StudentService.search_students(
         keyword=keyword, gender=gender, rank=rank,
-        department_id=department_id, page=page
+        department_id=department_id, class_id=class_id, page=page
     )
     departments = DepartmentModel.query.order_by(DepartmentModel.department_name).all()
+    classes = ClassModel.query.order_by(ClassModel.class_code).all()
     return render_template(
         'students.html',
         students=students, keyword=keyword, gender=gender,
-        rank=rank, department_id=department_id,
+        rank=rank, department_id=department_id, class_id=class_id,
         page=page, total_pages=total_pages, total=total,
-        departments=departments,
+        departments=departments, classes=classes,
     )
+
+
+@app.route('/students/<int:student_id>')
+@token_required
+@admin_or_self_required
+def student_detail(student_id):
+    student = StudentModel.query.get_or_404(student_id)
+    grades = (GradeModel.query.filter_by(student_id=student_id)
+              .join(SubjectModel).join(SemesterModel)
+              .order_by(SemesterModel.academic_year.desc(), SemesterModel.name, SubjectModel.subject_name)
+              .all())
+    user = UserModel.query.filter_by(student_id=student_id).first()
+    enrollments = EnrollmentModel.query.filter_by(student_id=student_id).order_by(EnrollmentModel.registered_at.desc()).all()
+    return render_template('student_detail.html', student=student, grades=grades, user=user, enrollments=enrollments)
 
 
 @app.route('/students/add', methods=['GET', 'POST'])
@@ -228,6 +264,7 @@ def add_student():
         dob_str = request.form.get('date_of_birth', '')
         dob     = datetime.strptime(dob_str, '%Y-%m-%d').date() if dob_str else None
         dept_id = request.form.get('department_id') or None
+        class_id = request.form.get('class_id') or None
 
         student = StudentModel(
             student_code  = code,
@@ -236,6 +273,7 @@ def add_student():
             email         = request.form.get('email', '').strip() or None,
             phone         = request.form.get('phone', '').strip() or None,
             class_name    = request.form.get('class_name', '').strip() or None,
+            class_id      = class_id,
             address       = request.form.get('address', '').strip() or None,
             date_of_birth = dob,
             department_id = dept_id,
@@ -246,8 +284,9 @@ def add_student():
         return redirect(url_for('students_manager'))
 
     departments = DepartmentModel.query.order_by(DepartmentModel.department_name).all()
+    classes = ClassModel.query.order_by(ClassModel.class_code).all()
     return render_template('student_form.html', student=None, action='add',
-                           departments=departments)
+                           departments=departments, classes=classes)
 
 
 @app.route('/students/<int:student_id>/edit', methods=['GET', 'POST'])
@@ -268,6 +307,7 @@ def edit_student(student_id):
         dob_str = request.form.get('date_of_birth', '')
         dob     = datetime.strptime(dob_str, '%Y-%m-%d').date() if dob_str else None
         dept_id = request.form.get('department_id') or None
+        class_id = request.form.get('class_id') or None
 
         student.student_code  = code
         student.full_name     = request.form.get('full_name', '').strip()
@@ -275,6 +315,7 @@ def edit_student(student_id):
         student.email         = request.form.get('email', '').strip() or None
         student.phone         = request.form.get('phone', '').strip() or None
         student.class_name    = request.form.get('class_name', '').strip() or None
+        student.class_id      = class_id
         student.address       = request.form.get('address', '').strip() or None
         student.date_of_birth = dob
         student.department_id = dept_id
@@ -283,8 +324,9 @@ def edit_student(student_id):
         return redirect(url_for('students_manager'))
 
     departments = DepartmentModel.query.order_by(DepartmentModel.department_name).all()
+    classes = ClassModel.query.order_by(ClassModel.class_code).all()
     return render_template('student_form.html', student=student, action='edit',
-                           departments=departments)
+                           departments=departments, classes=classes)
 
 
 @app.route('/students/<int:student_id>/delete', methods=['POST'])
@@ -574,13 +616,14 @@ def delete_department(dept_id):
 def users_manager():
     users = UserModel.query.order_by(UserModel.username).all()
     students_no_account = (StudentModel.query
-                           .filter(~StudentModel.id.in_(
-                               db.session.query(UserModel.student_id)
-                               .filter(UserModel.student_id.isnot(None))
-                           ))
+                           .filter(~StudentModel.id.in_(db.session.query(UserModel.student_id).filter(UserModel.student_id.isnot(None))))
                            .order_by(StudentModel.full_name).all())
+    teachers_no_account = (TeacherModel.query
+                           .filter(~TeacherModel.id.in_(db.session.query(UserModel.teacher_id).filter(UserModel.teacher_id.isnot(None))))
+                           .order_by(TeacherModel.full_name).all())
     return render_template('users.html', users=users,
-                           students_no_account=students_no_account)
+                           students_no_account=students_no_account,
+                           teachers_no_account=teachers_no_account)
 
 
 @app.route('/users/add', methods=['POST'])
@@ -591,10 +634,12 @@ def add_user():
     if UserModel.query.filter_by(username=uname).first():
         flash(f'Tên đăng nhập "{uname}" đã tồn tại!', 'danger')
         return redirect(url_for('users_manager'))
+    role = request.form.get('role', 'student')
     user = UserModel(
         username   = uname,
-        role       = request.form.get('role', 'student'),
-        student_id = request.form.get('student_id') or None,
+        role       = role,
+        student_id = request.form.get('student_id') or None if role == 'student' else None,
+        teacher_id = request.form.get('teacher_id') or None if role == 'teacher' else None,
     )
     user.set_password(request.form.get('password', ''))
     db.session.add(user)
@@ -631,6 +676,288 @@ def delete_user(user_id):
     db.session.commit()
     flash('Đã xóa tài khoản.', 'success')
     return redirect(url_for('users_manager'))
+
+
+# ===================== GIAI ĐOẠN 2: QUẢN LÝ LỚP HỌC =====================
+@app.route('/classes')
+@token_required
+@admin_required
+def classes_manager():
+    keyword = request.args.get('q', '').strip()
+    query = ClassModel.query
+    if keyword:
+        like = f'%{keyword}%'
+        query = query.filter(db.or_(ClassModel.class_code.ilike(like), ClassModel.class_name.ilike(like)))
+    classes = query.order_by(ClassModel.class_code).all()
+    departments = DepartmentModel.query.order_by(DepartmentModel.department_name).all()
+    return render_template('classes.html', classes=classes, departments=departments, keyword=keyword)
+
+
+@app.route('/classes/add', methods=['POST'])
+@token_required
+@admin_required
+def add_class():
+    code = request.form.get('class_code', '').strip()
+    name = request.form.get('class_name', '').strip()
+    if not code or not name:
+        flash('Vui lòng nhập mã lớp và tên lớp!', 'danger')
+        return redirect(url_for('classes_manager'))
+    if ClassModel.query.filter_by(class_code=code).first():
+        flash(f'Mã lớp "{code}" đã tồn tại!', 'danger')
+        return redirect(url_for('classes_manager'))
+    cls = ClassModel(class_code=code, class_name=name,
+                     academic_year=request.form.get('academic_year', '').strip() or None,
+                     advisor_name=request.form.get('advisor_name', '').strip() or None,
+                     department_id=request.form.get('department_id') or None)
+    db.session.add(cls)
+    db.session.commit()
+    flash('Đã thêm lớp học!', 'success')
+    return redirect(url_for('classes_manager'))
+
+
+@app.route('/classes/<int:class_id>/edit', methods=['POST'])
+@token_required
+@admin_required
+def edit_class(class_id):
+    cls = ClassModel.query.get_or_404(class_id)
+    cls.class_name = request.form.get('class_name', cls.class_name).strip()
+    cls.academic_year = request.form.get('academic_year', '').strip() or None
+    cls.advisor_name = request.form.get('advisor_name', '').strip() or None
+    cls.department_id = request.form.get('department_id') or None
+    db.session.commit()
+    flash('Đã cập nhật lớp học!', 'success')
+    return redirect(url_for('classes_manager'))
+
+
+@app.route('/classes/<int:class_id>/delete', methods=['POST'])
+@token_required
+@admin_required
+def delete_class(class_id):
+    cls = ClassModel.query.get_or_404(class_id)
+    if cls.students:
+        flash('Không thể xóa lớp đang có sinh viên!', 'danger')
+        return redirect(url_for('classes_manager'))
+    db.session.delete(cls)
+    db.session.commit()
+    flash('Đã xóa lớp học!', 'success')
+    return redirect(url_for('classes_manager'))
+
+
+# ===================== GIAI ĐOẠN 3: GIẢNG VIÊN =====================
+@app.route('/teachers')
+@token_required
+@admin_required
+def teachers_manager():
+    teachers = TeacherModel.query.order_by(TeacherModel.teacher_code).all()
+    departments = DepartmentModel.query.order_by(DepartmentModel.department_name).all()
+    return render_template('teachers.html', teachers=teachers, departments=departments)
+
+
+@app.route('/teachers/add', methods=['POST'])
+@token_required
+@admin_required
+def add_teacher():
+    code = request.form.get('teacher_code', '').strip()
+    name = request.form.get('full_name', '').strip()
+    if not code or not name:
+        flash('Vui lòng nhập mã giảng viên và họ tên!', 'danger')
+        return redirect(url_for('teachers_manager'))
+    if TeacherModel.query.filter_by(teacher_code=code).first():
+        flash(f'Mã giảng viên "{code}" đã tồn tại!', 'danger')
+        return redirect(url_for('teachers_manager'))
+    teacher = TeacherModel(teacher_code=code, full_name=name,
+                           email=request.form.get('email', '').strip() or None,
+                           phone=request.form.get('phone', '').strip() or None,
+                           department_id=request.form.get('department_id') or None)
+    db.session.add(teacher)
+    db.session.commit()
+    flash('Đã thêm giảng viên!', 'success')
+    return redirect(url_for('teachers_manager'))
+
+
+@app.route('/teachers/<int:teacher_id>/delete', methods=['POST'])
+@token_required
+@admin_required
+def delete_teacher(teacher_id):
+    teacher = TeacherModel.query.get_or_404(teacher_id)
+    if teacher.sections:
+        flash('Không thể xóa giảng viên đang được phân công lớp học phần!', 'danger')
+        return redirect(url_for('teachers_manager'))
+    db.session.delete(teacher)
+    db.session.commit()
+    flash('Đã xóa giảng viên!', 'success')
+    return redirect(url_for('teachers_manager'))
+
+
+# ===================== GIAI ĐOẠN 3: LỚP HỌC PHẦN =====================
+@app.route('/course-sections')
+@token_required
+@admin_required
+def course_sections_manager():
+    sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+    subjects = SubjectModel.query.order_by(SubjectModel.subject_name).all()
+    semesters = SemesterModel.query.order_by(SemesterModel.academic_year.desc(), SemesterModel.name).all()
+    teachers = TeacherModel.query.order_by(TeacherModel.full_name).all()
+    return render_template('course_sections.html', sections=sections, subjects=subjects, semesters=semesters, teachers=teachers)
+
+
+@app.route('/course-sections/add', methods=['POST'])
+@token_required
+@admin_required
+def add_course_section():
+    code = request.form.get('section_code', '').strip()
+    if not code:
+        flash('Vui lòng nhập mã lớp học phần!', 'danger')
+        return redirect(url_for('course_sections_manager'))
+    if CourseSectionModel.query.filter_by(section_code=code).first():
+        flash(f'Mã lớp học phần "{code}" đã tồn tại!', 'danger')
+        return redirect(url_for('course_sections_manager'))
+    section = CourseSectionModel(section_code=code,
+                                 subject_id=request.form.get('subject_id'),
+                                 semester_id=request.form.get('semester_id'),
+                                 teacher_id=request.form.get('teacher_id') or None,
+                                 max_students=request.form.get('max_students', type=int) or 50,
+                                 room=request.form.get('room', '').strip() or None,
+                                 schedule=request.form.get('schedule', '').strip() or None,
+                                 status=request.form.get('status', 'open'))
+    db.session.add(section)
+    db.session.commit()
+    flash('Đã thêm lớp học phần!', 'success')
+    return redirect(url_for('course_sections_manager'))
+
+
+@app.route('/course-sections/<int:section_id>/delete', methods=['POST'])
+@token_required
+@admin_required
+def delete_course_section(section_id):
+    section = CourseSectionModel.query.get_or_404(section_id)
+    if section.enrollments:
+        flash('Không thể xóa lớp học phần đã có sinh viên đăng ký!', 'danger')
+        return redirect(url_for('course_sections_manager'))
+    db.session.delete(section)
+    db.session.commit()
+    flash('Đã xóa lớp học phần!', 'success')
+    return redirect(url_for('course_sections_manager'))
+
+
+@app.route('/course-sections/<int:section_id>/toggle_lock', methods=['POST'])
+@token_required
+@admin_required
+def toggle_section_lock(section_id):
+    section = CourseSectionModel.query.get_or_404(section_id)
+    section.grades_locked = not section.grades_locked
+    if section.grades_locked:
+        section.status = 'locked'
+    db.session.commit()
+    flash('Đã cập nhật trạng thái khóa điểm!', 'success')
+    return redirect(url_for('course_sections_manager'))
+
+
+# ===================== ĐĂNG KÝ HỌC PHẦN =====================
+@app.route('/enrollments')
+@token_required
+def enrollments_page():
+    sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    my_enrollments = []
+    registered_section_ids = set()
+    if user and user.student_id:
+        my_enrollments = EnrollmentModel.query.filter_by(student_id=user.student_id).all()
+        registered_section_ids = {e.section_id for e in my_enrollments if e.status == 'registered'}
+    return render_template('enrollments.html', sections=sections, my_enrollments=my_enrollments, registered_section_ids=registered_section_ids)
+
+
+@app.route('/enrollments/register/<int:section_id>', methods=['POST'])
+@token_required
+def register_section(section_id):
+    if session.get('role') != 'student':
+        abort(403)
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    if not user or not user.student_id:
+        flash('Tài khoản chưa liên kết sinh viên!', 'danger')
+        return redirect(url_for('enrollments_page'))
+    section = CourseSectionModel.query.get_or_404(section_id)
+    if section.status != 'open':
+        flash('Lớp học phần này chưa mở đăng ký hoặc đã đóng!', 'danger')
+        return redirect(url_for('enrollments_page'))
+    if section.is_full:
+        flash('Lớp học phần đã đủ sĩ số!', 'danger')
+        return redirect(url_for('enrollments_page'))
+    existed = EnrollmentModel.query.filter_by(student_id=user.student_id, section_id=section_id).first()
+    if existed:
+        if existed.status != 'registered':
+            existed.status = 'registered'
+            db.session.commit()
+            flash('Đã đăng ký lại học phần!', 'success')
+        else:
+            flash('Bạn đã đăng ký lớp học phần này rồi!', 'warning')
+        return redirect(url_for('enrollments_page'))
+    enrollment = EnrollmentModel(student_id=user.student_id, section_id=section_id)
+    db.session.add(enrollment)
+    db.session.commit()
+    flash('Đăng ký học phần thành công!', 'success')
+    return redirect(url_for('enrollments_page'))
+
+
+@app.route('/enrollments/cancel/<int:enrollment_id>', methods=['POST'])
+@token_required
+def cancel_enrollment(enrollment_id):
+    if session.get('role') != 'student':
+        abort(403)
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    enrollment = EnrollmentModel.query.get_or_404(enrollment_id)
+    if not user or enrollment.student_id != user.student_id:
+        abort(403)
+    if enrollment.section.status != 'open':
+        flash('Không thể hủy vì lớp học phần đã đóng đăng ký!', 'danger')
+        return redirect(url_for('enrollments_page'))
+    db.session.delete(enrollment)
+    db.session.commit()
+    flash('Đã hủy đăng ký học phần!', 'success')
+    return redirect(url_for('enrollments_page'))
+
+
+# ===================== GIẢNG VIÊN NHẬP ĐIỂM =====================
+@app.route('/teacher/sections')
+@token_required
+@admin_or_teacher_required
+def teacher_sections():
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    if session.get('role') == 'admin':
+        sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+    else:
+        sections = CourseSectionModel.query.filter_by(teacher_id=user.teacher_id).order_by(CourseSectionModel.section_code).all()
+    return render_template('teacher_sections.html', sections=sections)
+
+
+@app.route('/teacher/sections/<int:section_id>/grades', methods=['GET', 'POST'])
+@token_required
+@admin_or_teacher_required
+def section_grades(section_id):
+    section = CourseSectionModel.query.get_or_404(section_id)
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    if session.get('role') == 'teacher' and section.teacher_id != user.teacher_id:
+        abort(403)
+    enrollments = EnrollmentModel.query.filter_by(section_id=section_id, status='registered').all()
+    if request.method == 'POST':
+        if section.grades_locked and session.get('role') != 'admin':
+            flash('Điểm lớp này đã bị khóa. Vui lòng liên hệ admin.', 'danger')
+            return redirect(request.url)
+        for e in enrollments:
+            pg = request.form.get(f'progress_{e.student_id}', type=float)
+            eg = request.form.get(f'exam_{e.student_id}', type=float)
+            if pg is None or eg is None:
+                continue
+            if not (0 <= pg <= 10 and 0 <= eg <= 10):
+                flash('Điểm phải nằm trong khoảng 0 đến 10!', 'danger')
+                return redirect(request.url)
+            StudentService.upsert_grade(e.student_id, section.subject_id, section.semester_id, pg, eg, actor=session.get('username', 'teacher'))
+        flash('Đã lưu điểm lớp học phần!', 'success')
+        return redirect(request.url)
+    grade_map = {}
+    for e in enrollments:
+        grade_map[e.student_id] = GradeModel.query.filter_by(student_id=e.student_id, subject_id=section.subject_id, semester_id=section.semester_id).first()
+    return render_template('section_grades.html', section=section, enrollments=enrollments, grade_map=grade_map)
 
 
 @app.route('/change_password', methods=['GET', 'POST'])
@@ -671,9 +998,10 @@ def audit_log():
 @admin_required
 def export_excel():
     sem_id = request.args.get('semester_id', type=int)
-    path   = '/tmp/baocao_sinhvien.xlsx'
-    StudentService.export_students_to_excel(path, semester_id=sem_id)
-    return send_file(path, as_attachment=True, download_name='baocao_sinhvien.xlsx')
+    temp = tempfile.NamedTemporaryFile(delete=False, suffix='.xlsx')
+    temp.close()
+    StudentService.export_students_to_excel(temp.name, semester_id=sem_id)
+    return send_file(temp.name, as_attachment=True, download_name='baocao_sinhvien.xlsx')
 
 
 if __name__ == '__main__':

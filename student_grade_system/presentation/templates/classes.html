@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% block title %}Quản lý Lớp học — QLSV{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-4"><div class="card shadow-sm"><div class="card-header fw-semibold"><i class="bi bi-plus-circle me-2"></i>Thêm lớp học</div><div class="card-body">
+    <form method="POST" action="{{ url_for('add_class') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3"><label class="form-label">Mã lớp *</label><input name="class_code" class="form-control" required placeholder="VD: CNTT01"></div>
+      <div class="mb-3"><label class="form-label">Tên lớp *</label><input name="class_name" class="form-control" required placeholder="VD: Công nghệ thông tin 01"></div>
+      <div class="mb-3"><label class="form-label">Khóa</label><input name="academic_year" class="form-control" placeholder="VD: 2024-2028"></div>
+      <div class="mb-3"><label class="form-label">Cố vấn học tập</label><input name="advisor_name" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Khoa / Ngành</label><select name="department_id" class="form-select"><option value="">— Chọn khoa —</option>{% for d in departments %}<option value="{{ d.id }}">{{ d.department_name }}</option>{% endfor %}</select></div>
+      <button class="btn btn-primary w-100"><i class="bi bi-save me-1"></i>Lưu lớp</button>
+    </form>
+  </div></div></div>
+  <div class="col-md-8"><div class="card shadow-sm"><div class="card-header fw-semibold d-flex justify-content-between"><span><i class="bi bi-diagram-3 me-2"></i>Danh sách lớp học</span><span class="badge bg-secondary">{{ classes|length }} lớp</span></div><div class="card-body p-0">
+    <table class="table table-hover table-striped mb-0 align-middle"><thead class="table-dark"><tr><th>Mã lớp</th><th>Tên lớp</th><th>Khoa</th><th>Khóa</th><th>Cố vấn</th><th class="text-center">SV</th><th class="text-center">Thao tác</th></tr></thead><tbody>
+      {% for c in classes %}<tr><td><code>{{ c.class_code }}</code></td><td>{{ c.class_name }}</td><td>{{ c.department.department_name if c.department else '—' }}</td><td>{{ c.academic_year or '—' }}</td><td>{{ c.advisor_name or '—' }}</td><td class="text-center">{{ c.students|length }}</td><td class="text-center"><form method="POST" action="{{ url_for('delete_class', class_id=c.id) }}" onsubmit="return confirm('Xóa lớp {{ c.display_name }}?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>{% else %}<tr><td colspan="7" class="text-center text-muted py-4">Chưa có lớp học.</td></tr>{% endfor %}
+    </tbody></table>
+  </div></div></div>
+</div>
+{% endblock %}

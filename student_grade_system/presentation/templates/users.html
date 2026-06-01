@@ -24,6 +24,7 @@
                         <select name="role" class="form-select">
                             <option value="student">Sinh viên</option>
                             <option value="admin">Admin</option>
+                            <option value="teacher">Giảng viên</option>
                         </select>
                     </div>
                     <div class="mb-3">
@@ -34,6 +35,16 @@
                             <option value="{{ sv.id }}">{{ sv.student_code }} – {{ sv.full_name }}</option>
                             {% endfor %}
                         </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Liên kết giảng viên</label>
+                        <select name="teacher_id" class="form-select">
+                            <option value="">— Không liên kết —</option>
+                            {% for gv in teachers_no_account %}
+                            <option value="{{ gv.id }}">{{ gv.teacher_code }} – {{ gv.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                        <small class="text-muted">Chọn mục này khi vai trò là Giảng viên.</small>
                     </div>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-person-plus me-1"></i>Tạo tài khoản
@@ -54,7 +65,7 @@
                     <thead class="table-dark">
                         <tr>
                             <th>Tên đăng nhập</th><th>Vai trò</th>
-                            <th>Liên kết SV</th><th>Trạng thái</th>
+                            <th>Liên kết</th><th>Trạng thái</th>
                             <th class="text-center">Thao tác</th>
                         </tr>
                     </thead>
@@ -69,11 +80,7 @@
                                     </span>
                                 </td>
                                 <td>
-                                    {% if u.student %}
-                                        <small class="text-muted">
-                                            <code>{{ u.student.student_code }}</code> {{ u.student.full_name }}
-                                        </small>
-                                    {% else %}—{% endif %}
+                                    {% if u.student %}<small class="text-muted"><code>{{ u.student.student_code }}</code> {{ u.student.full_name }}</small>{% elif u.teacher %}<small class="text-muted"><code>{{ u.teacher.teacher_code }}</code> {{ u.teacher.full_name }}</small>{% else %}—{% endif %}
                                 </td>
                                 <td>
                                     {% if u.is_locked() %}

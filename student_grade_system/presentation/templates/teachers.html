@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}Quản lý Giảng viên — QLSV{% endblock %}
+{% block content %}
+<div class="row g-3">
+  <div class="col-md-4"><div class="card shadow-sm"><div class="card-header fw-semibold"><i class="bi bi-person-plus me-2"></i>Thêm giảng viên</div><div class="card-body">
+    <form method="POST" action="{{ url_for('add_teacher') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="mb-3"><label class="form-label">Mã GV *</label><input name="teacher_code" class="form-control" required placeholder="VD: GV001"></div>
+      <div class="mb-3"><label class="form-label">Họ tên *</label><input name="full_name" class="form-control" required></div>
+      <div class="mb-3"><label class="form-label">Email</label><input name="email" type="email" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">SĐT</label><input name="phone" class="form-control"></div>
+      <div class="mb-3"><label class="form-label">Khoa</label><select name="department_id" class="form-select"><option value="">— Chọn khoa —</option>{% for d in departments %}<option value="{{ d.id }}">{{ d.department_name }}</option>{% endfor %}</select></div>
+      <button class="btn btn-primary w-100"><i class="bi bi-save me-1"></i>Lưu giảng viên</button>
+    </form>
+  </div></div></div>
+  <div class="col-md-8"><div class="card shadow-sm"><div class="card-header fw-semibold d-flex justify-content-between"><span><i class="bi bi-person-workspace me-2"></i>Danh sách giảng viên</span><span class="badge bg-secondary">{{ teachers|length }} GV</span></div><div class="card-body p-0"><table class="table table-hover table-striped mb-0 align-middle"><thead class="table-dark"><tr><th>Mã GV</th><th>Họ tên</th><th>Khoa</th><th>Email</th><th class="text-center">Lớp HP</th><th class="text-center">Thao tác</th></tr></thead><tbody>{% for t in teachers %}<tr><td><code>{{ t.teacher_code }}</code></td><td>{{ t.full_name }}</td><td>{{ t.department.department_name if t.department else '—' }}</td><td>{{ t.email or '—' }}</td><td class="text-center">{{ t.sections|length }}</td><td class="text-center"><form method="POST" action="{{ url_for('delete_teacher', teacher_id=t.id) }}" onsubmit="return confirm('Xóa giảng viên {{ t.full_name }}?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button></form></td></tr>{% else %}<tr><td colspan="6" class="text-center text-muted py-4">Chưa có giảng viên.</td></tr>{% endfor %}</tbody></table></div></div></div>
+</div>
+{% endblock %}
