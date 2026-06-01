@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="timetable-page">
+
+    <div class="timetable-breadcrumb mb-3">
+        <span>Thời khóa biểu</span>
+        <i class="bi bi-chevron-right mx-2"></i>
+        <strong>{{ page_title }}</strong>
+    </div>
+
+    <div class="row g-3">
+
+        <!-- KHUNG THỜI KHÓA BIỂU -->
+        <div class="col-lg-9">
+            <div class="card timetable-card shadow-sm">
+
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h4 class="mb-0 fw-bold">
+                            <i class="bi bi-calendar-week me-2 text-primary"></i>{{ page_title }}
+                        </h4>
+                        <small class="text-muted">{{ page_note }}</small>
+                    </div>
+
+                    <span class="badge bg-primary">
+                        {% if timetable_type == 'student' %}
+                            Sinh viên
+                        {% elif timetable_type == 'teacher' %}
+                            Giảng viên
+                        {% else %}
+                            Admin
+                        {% endif %}
+                    </span>
+                </div>
+
+                <div class="card-body timetable-body">
+
+                    {% if events %}
+                    <div class="timetable-grid-wrapper">
+
+                        <!-- CỘT GIỜ -->
+                        <div class="time-column">
+                            <div class="time-header">
+                                <i class="bi bi-clock me-1"></i>
+                                Giờ VN
+                            </div>
+
+                            {% for hour in range(6, 22) %}
+                            <div class="time-slot-label">
+                                {{ "%02d:00"|format(hour) }}
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- LƯỚI TUẦN -->
+                        <div class="week-grid">
+
+                            <!-- HEADER NGÀY -->
+                            <div class="week-header">
+                                {% for day in week_days %}
+                                <div class="day-header {% if loop.first %}active{% endif %}">
+                                    <div class="day-date">
+                                        {{ day.date.strftime('%d/%m/%Y') }}
+                                    </div>
+                                    <div class="day-name">
+                                        {{ day.label }}
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+
+                            <!-- BODY LƯỚI -->
+                            <div class="week-body">
+
+                                <!-- CÁC CỘT NGÀY -->
+                                {% for day in week_days %}
+                                <div class="day-column">
+                                    {% for hour in range(6, 22) %}
+                                    <div class="hour-cell"></div>
+                                    {% endfor %}
+                                </div>
+                                {% endfor %}
+
+                                <!-- CÁC MÔN HỌC -->
+                                {% for event in events %}
+                                    {% set top_px = ((event.start_minutes - 360) / 60) * 76 %}
+                                    {% set height_px = (event.duration_minutes / 60) * 76 %}
+                                    {% set left_percent = event.day_index * 100 / 7 %}
+                                    {% set width_percent = 100 / 7 %}
+
+                                    <div class="event-card event-{{ event.color_class }}"
+                                         data-top="{{ top_px }}"
+                                         data-left="{{ left_percent }}"
+                                         data-width="{{ width_percent }}"
+                                         data-height="{{ height_px }}"
+                                         data-bs-toggle="modal"
+                                         data-bs-target="#eventModal{{ event.id }}">
+
+                                        <div class="event-title">
+                                            {{ event.subject_name }}
+                                        </div>
+
+                                        <div class="event-time">
+                                            {{ event.start_time }} - {{ event.end_time }}
+                                        </div>
+
+                                        <div class="event-room">
+                                            {{ event.room }}
+                                        </div>
+
+                                        <div class="event-teacher">
+                                            {{ event.teacher_name }}
+                                        </div>
+                                    </div>
+
+                                    <!-- MODAL CHI TIẾT -->
+                                    <div class="modal fade" id="eventModal{{ event.id }}" tabindex="-1" aria-hidden="true">
+                                        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                            <div class="modal-content timetable-modal">
+
+                                                <div class="modal-header">
+                                                    <div>
+                                                        <h5 class="modal-title fw-bold">
+                                                            Học phần: {{ event.subject_name }}
+                                                        </h5>
+
+                                                        <div class="small text-warning fw-bold">
+                                                            {{ week_days[event.day_index].label }}
+                                                            -
+                                                            {{ event.start_time }} - {{ event.end_time }}
+                                                        </div>
+                                                    </div>
+
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+
+                                                <div class="modal-body">
+
+                                                    <div class="row g-3 mb-3">
+                                                        <div class="col-md-6">
+                                                            <div class="detail-box">
+                                                                <strong>Lớp:</strong><br>
+                                                                {{ event.section_code }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="detail-box">
+                                                                <strong>Phòng học:</strong><br>
+                                                                {{ event.room }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="detail-box">
+                                                                <strong>Giảng viên:</strong><br>
+                                                                {{ event.teacher_name }}
+                                                            </div>
+                                                        </div>
+
+                                                        <div class="col-md-6">
+                                                            <div class="detail-box">
+                                                                <strong>Lịch học:</strong><br>
+                                                                {{ event.schedule_text }}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {% if timetable_type in ['teacher', 'admin'] %}
+                                                    <h6 class="fw-bold mb-2">
+                                                        <i class="bi bi-people me-1"></i>
+                                                        Danh sách sinh viên
+                                                    </h6>
+
+                                                    <div class="table-responsive">
+                                                        <table class="table table-bordered align-middle">
+                                                            <thead class="table-light">
+                                                                <tr>
+                                                                    <th style="width: 70px;">STT</th>
+                                                                    <th>Mã SV</th>
+                                                                    <th>Họ tên</th>
+                                                                </tr>
+                                                            </thead>
+
+                                                            <tbody>
+                                                                {% if event_id_to_students and event.id in event_id_to_students and event_id_to_students[event.id] %}
+                                                                    {% for student in event_id_to_students[event.id] %}
+                                                                    <tr>
+                                                                        <td>{{ loop.index }}</td>
+                                                                        <td>{{ student.student_code }}</td>
+                                                                        <td>{{ student.full_name }}</td>
+                                                                    </tr>
+                                                                    {% endfor %}
+                                                                {% else %}
+                                                                    <tr>
+                                                                        <td colspan="3" class="text-center text-muted">
+                                                                            Chưa có sinh viên đăng ký.
+                                                                        </td>
+                                                                    </tr>
+                                                                {% endif %}
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    {% else %}
+                                                    <div class="alert alert-info mb-0">
+                                                        Đây là chi tiết buổi học của bạn.
+                                                    </div>
+                                                    {% endif %}
+
+                                                </div>
+
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                                                        Đóng
+                                                    </button>
+                                                </div>
+
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endfor %}
+
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-calendar-x fs-1 d-block mb-2"></i>
+                        Chưa có lịch học để hiển thị.
+                        <div class="small mt-2">
+                            Hãy kiểm tra phần lớp học phần và nhập lịch theo dạng:
+                            <code>Thứ 2 - 06:45 - 09:25</code>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+
+        <!-- LỊCH THÁNG NHỎ -->
+        <div class="col-lg-3">
+            <div class="card shadow-sm mini-calendar-card">
+                <div class="mini-calendar-header">
+                    <span>{{ week_days[0].date.strftime('Tháng %m-%Y') }}</span>
+                </div>
+
+                <div class="mini-calendar-body">
+                    <div class="mini-weekdays">
+                        <span>T2</span>
+                        <span>T3</span>
+                        <span>T4</span>
+                        <span>T5</span>
+                        <span>T6</span>
+                        <span>T7</span>
+                        <span>CN</span>
+                    </div>
+
+                    <div class="mini-days">
+                        {% for i in range(1, 32) %}
+                        <span class="{% if i == week_days[0].date.day %}active{% endif %}">
+                            {{ i }}
+                        </span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="card shadow-sm mt-3">
+                <div class="card-header fw-bold">
+                    <i class="bi bi-info-circle me-1 text-primary"></i>
+                    Gợi ý nhập lịch
+                </div>
+
+                <div class="card-body small">
+                    <p class="mb-1">Nhập lịch lớp học phần theo dạng:</p>
+                    <code>Thứ 2 - 06:45 - 09:25</code><br>
+                    <code>T4 09:30-12:10</code><br>
+                    <code>Thứ 6 - 13:00 - 15:30</code>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const eventCards = document.querySelectorAll('.event-card');
+
+    eventCards.forEach(function (card) {
+        const top = card.dataset.top || 0;
+        const left = card.dataset.left || 0;
+        const width = card.dataset.width || 14.28;
+        const height = card.dataset.height || 60;
+
+        card.style.top = top + 'px';
+        card.style.left = 'calc(' + left + '% + 4px)';
+        card.style.width = 'calc(' + width + '% - 8px)';
+        card.style.height = height + 'px';
+    });
+});
+</script>
+{% endblock %}

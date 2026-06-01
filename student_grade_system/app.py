@@ -1,13 +1,14 @@
 import os
 import sys
 import tempfile
+import re
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, flash, send_file, jsonify, abort, g)
 from dotenv import load_dotenv
@@ -83,6 +84,7 @@ def setup_db():
         os.makedirs(os.path.join(base_dir, 'instance'), exist_ok=True)
         db.create_all()
 
+        # Bổ sung cột cho database cũ nếu người dùng đang chạy lại trên DB đã có sẵn.
         _add_column_if_missing('users', 'student_id', 'student_id INTEGER NULL')
         _add_column_if_missing('users', 'teacher_id', 'teacher_id INTEGER NULL')
         _add_column_if_missing('users', 'failed_login_count', 'failed_login_count INTEGER DEFAULT 0')
@@ -123,7 +125,7 @@ def setup_db():
 
 def generate_jwt_token(username, role):
     payload = {
-        'exp': datetime.utcnow() + timedelta(hours=2),
+        'exp': datetime.now(timezone.utc) + timedelta(hours=2),
         'sub': username,
         'role': role,
     }
@@ -193,9 +195,20 @@ def dashboard():
 @token_required
 def my_profile():
     if session.get('role') != 'student':
+        flash('Chỉ tài khoản sinh viên mới có trang hồ sơ cá nhân.', 'warning')
         return redirect(url_for('dashboard'))
 
-    student = StudentModel.query.get_or_404(session['linked_student_id'])
+    linked_student_id = session.get('linked_student_id')
+
+    if not linked_student_id:
+        flash('Tài khoản này chưa được liên kết với sinh viên.', 'danger')
+        return redirect(url_for('dashboard'))
+
+    student = StudentModel.query.get(linked_student_id)
+
+    if not student:
+        flash('Không tìm thấy thông tin sinh viên được liên kết.', 'danger')
+        return redirect(url_for('dashboard'))
 
     if request.method == 'POST':
         email = request.form.get('email', '').strip() or None
@@ -210,7 +223,6 @@ def my_profile():
 
     semesters = SemesterModel.query.order_by(SemesterModel.academic_year.desc()).all()
     return render_template('profile.html', student=student, semesters=semesters)
-
 
 @app.route('/students')
 @token_required
@@ -960,6 +972,262 @@ def section_grades(section_id):
     return render_template('section_grades.html', section=section, enrollments=enrollments, grade_map=grade_map)
 
 
+
+# ===================== THỜI KHÓA BIỂU KIỂU LƯỚI TUẦN =====================
+
+WEEKDAY_MAP = {
+    2: 'Thứ 2',
+    3: 'Thứ 3',
+    4: 'Thứ 4',
+    5: 'Thứ 5',
+    6: 'Thứ 6',
+    7: 'Thứ 7',
+    8: 'Chủ nhật'
+}
+
+
+def parse_schedule_text(schedule_text):
+    """
+    Hỗ trợ các dạng nhập lịch:
+    - Thứ 2 - 06:45 - 09:25
+    - T2 06:45-09:25
+    - Thứ 4 | 09:30 | 12:10
+    - Thứ 6 - Tiết 1-3 - 06:45-09:25
+    """
+    if not schedule_text:
+        return None
+
+    text = schedule_text.strip().lower()
+    weekday = None
+
+    if 'thứ 2' in text or 'thu 2' in text or re.search(r'\bt2\b', text):
+        weekday = 2
+    elif 'thứ 3' in text or 'thu 3' in text or re.search(r'\bt3\b', text):
+        weekday = 3
+    elif 'thứ 4' in text or 'thu 4' in text or re.search(r'\bt4\b', text):
+        weekday = 4
+    elif 'thứ 5' in text or 'thu 5' in text or re.search(r'\bt5\b', text):
+        weekday = 5
+    elif 'thứ 6' in text or 'thu 6' in text or re.search(r'\bt6\b', text):
+        weekday = 6
+    elif 'thứ 7' in text or 'thu 7' in text or re.search(r'\bt7\b', text):
+        weekday = 7
+    elif 'chủ nhật' in text or 'chu nhat' in text or re.search(r'\bcn\b', text):
+        weekday = 8
+
+    time_matches = re.findall(r'(\d{1,2}:\d{2})', schedule_text)
+
+    if len(time_matches) >= 2:
+        start_time = time_matches[0]
+        end_time = time_matches[1]
+    else:
+        start_time = '07:00'
+        end_time = '09:00'
+
+    return {
+        'weekday': weekday,
+        'start_time': start_time,
+        'end_time': end_time
+    }
+
+
+def time_to_minutes(time_text):
+    hour, minute = map(int, time_text.split(':'))
+    return hour * 60 + minute
+
+
+def get_week_start(any_date=None):
+    if any_date is None:
+        any_date = datetime.today().date()
+    return any_date - timedelta(days=any_date.weekday())
+
+
+def build_week_days(base_date=None):
+    week_start = get_week_start(base_date)
+    days = []
+
+    for i in range(7):
+        current_date = week_start + timedelta(days=i)
+        weekday_num = i + 2 if i < 6 else 8
+        days.append({
+            'index': i,
+            'date': current_date,
+            'label': WEEKDAY_MAP[weekday_num],
+            'weekday_num': weekday_num
+        })
+
+    return days
+
+
+def build_timetable_events(sections):
+    events = []
+    colors = ['primary', 'orange', 'purple', 'success', 'danger', 'info', 'secondary']
+
+    for index, section in enumerate(sections):
+        parsed = parse_schedule_text(section.schedule or '')
+
+        if not parsed or not parsed.get('weekday'):
+            continue
+
+        weekday_num = parsed['weekday']
+        start_time = parsed['start_time']
+        end_time = parsed['end_time']
+
+        start_minutes = time_to_minutes(start_time)
+        end_minutes = time_to_minutes(end_time)
+
+        day_index = 6 if weekday_num == 8 else weekday_num - 2
+
+        events.append({
+            'id': section.id,
+            'section_code': section.section_code,
+            'subject_name': section.subject.subject_name if section.subject else f'Môn {section.subject_id}',
+            'teacher_name': section.teacher.full_name if section.teacher else 'Chưa phân công',
+            'room': section.room or 'Chưa có phòng',
+            'schedule_text': section.schedule or 'Chưa nhập lịch',
+            'status': section.status or 'open',
+            'start_time': start_time,
+            'end_time': end_time,
+            'start_minutes': start_minutes,
+            'end_minutes': end_minutes,
+            'duration_minutes': max(45, end_minutes - start_minutes),
+            'day_index': day_index,
+            'color_class': colors[index % len(colors)]
+        })
+
+    return events
+
+
+def build_event_students(sections):
+    event_id_to_students = {}
+
+    for section in sections:
+        students = []
+        for enrollment in section.enrollments:
+            if enrollment.status == 'registered' and enrollment.student:
+                students.append(enrollment.student)
+        event_id_to_students[section.id] = students
+
+    return event_id_to_students
+
+
+@app.route('/timetable')
+@token_required
+def timetable_redirect():
+    if session.get('role') == 'student':
+        return redirect(url_for('student_timetable'))
+
+    if session.get('role') == 'teacher':
+        return redirect(url_for('teacher_timetable'))
+
+    return redirect(url_for('admin_timetable'))
+
+
+@app.route('/student/timetable')
+@token_required
+def student_timetable():
+    if session.get('role') not in ['student', 'admin']:
+        abort(403)
+
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+
+    if session.get('role') == 'admin':
+        sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+        page_title = 'Thời khóa biểu sinh viên'
+        page_note = 'Admin đang xem toàn bộ lịch học.'
+    else:
+        if not user or not user.student_id:
+            flash('Tài khoản sinh viên chưa được liên kết với thông tin sinh viên.', 'warning')
+            sections = []
+        else:
+            enrollments = (
+                EnrollmentModel.query
+                .filter_by(student_id=user.student_id, status='registered')
+                .all()
+            )
+            sections = [e.section for e in enrollments if e.section]
+
+        page_title = 'Lịch học'
+        page_note = 'Thời khóa biểu cá nhân của sinh viên.'
+
+    week_days = build_week_days()
+    events = build_timetable_events(sections)
+    event_id_to_students = {}
+
+    return render_template(
+        'timetable.html',
+        page_title=page_title,
+        page_note=page_note,
+        timetable_type='student',
+        week_days=week_days,
+        events=events,
+        event_id_to_students=event_id_to_students
+    )
+
+
+@app.route('/teacher/timetable')
+@token_required
+def teacher_timetable():
+    if session.get('role') not in ['teacher', 'admin']:
+        abort(403)
+
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+
+    if session.get('role') == 'admin':
+        sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+        page_title = 'Thời khóa biểu giảng viên'
+        page_note = 'Admin đang xem toàn bộ lịch giảng dạy.'
+    else:
+        if not user or not user.teacher_id:
+            flash('Tài khoản giảng viên chưa được liên kết với thông tin giảng viên.', 'warning')
+            sections = []
+        else:
+            sections = (
+                CourseSectionModel.query
+                .filter_by(teacher_id=user.teacher_id)
+                .order_by(CourseSectionModel.section_code)
+                .all()
+            )
+
+        page_title = 'Lịch dạy'
+        page_note = 'Thời khóa biểu giảng dạy của giảng viên.'
+
+    week_days = build_week_days()
+    events = build_timetable_events(sections)
+    event_id_to_students = build_event_students(sections)
+
+    return render_template(
+        'timetable.html',
+        page_title=page_title,
+        page_note=page_note,
+        timetable_type='teacher',
+        week_days=week_days,
+        events=events,
+        event_id_to_students=event_id_to_students
+    )
+
+
+@app.route('/admin/timetable')
+@token_required
+@admin_required
+def admin_timetable():
+    sections = CourseSectionModel.query.order_by(CourseSectionModel.section_code).all()
+
+    week_days = build_week_days()
+    events = build_timetable_events(sections)
+    event_id_to_students = build_event_students(sections)
+
+    return render_template(
+        'timetable.html',
+        page_title='Thời khóa biểu toàn hệ thống',
+        page_note='Admin xem toàn bộ lịch học và lịch dạy.',
+        timetable_type='admin',
+        week_days=week_days,
+        events=events,
+        event_id_to_students=event_id_to_students
+    )
+
+
 @app.route('/change_password', methods=['GET', 'POST'])
 @token_required
 def change_password():
@@ -1006,4 +1274,4 @@ def export_excel():
 
 if __name__ == '__main__':
     os.makedirs(os.path.join(base_dir, 'instance'), exist_ok=True)
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
