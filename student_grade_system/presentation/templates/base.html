@@ -3,7 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Hệ Thống Quản Lý Sinh Viên{% endblock %}</title>
 
     <script>
@@ -16,6 +15,68 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+
+    <style>
+    /* CSS cho Sidebar Dropdown */
+    .sidebar-submenu {
+        list-style: none;
+        padding-left: 1.5rem;
+        margin-bottom: 0.5rem;
+        display: none;
+    }
+    .sidebar-submenu li a {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem 1rem;
+        color: var(--bs-body-color);
+        text-decoration: none;
+        font-size: 0.9rem;
+        border-radius: 0.25rem;
+        transition: all 0.2s ease;
+        opacity: 0.8;
+    }
+    .sidebar-submenu li a:hover {
+        background-color: rgba(var(--bs-primary-rgb), 0.1);
+        color: var(--bs-primary);
+        opacity: 1;
+    }
+    .sidebar-submenu li a.active {
+        background-color: var(--bs-primary);
+        color: #ffffff !important;
+        font-weight: 500;
+        opacity: 1;
+    }
+    .sidebar-dropdown .arrow {
+        transition: transform 0.2s ease;
+        margin-left: auto;
+    }
+    .sidebar-dropdown.open .arrow {
+        transform: rotate(180deg);
+    }
+    .sidebar-dropdown-btn {
+        width: 100%;
+        background: none;
+        border: none;
+        padding: 0.75rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        color: var(--bs-body-color);
+        border-radius: 0.375rem;
+        text-align: left;
+        transition: all 0.2s ease;
+    }
+    .sidebar-dropdown-btn:hover {
+        background-color: rgba(var(--bs-body-color-rgb), 0.05);
+    }
+    .sidebar-dropdown-btn.active {
+        font-weight: 600;
+        color: var(--bs-primary);
+    }
+    .final-live {
+        transition: color 0.3s ease, font-weight 0.3s ease;
+    }
+    </style>
 </head>
 
 <body>
@@ -24,13 +85,11 @@
 <div class="app-layout">
 
     <aside class="sidebar-custom shadow-sm">
-
         <div class="sidebar-top">
             <a class="sidebar-brand" href="{{ url_for('dashboard') }}">
                 <i class="bi bi-mortarboard-fill me-2"></i>
                 <span class="sidebar-text">QLSV System</span>
             </a>
-
             <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" title="Thu gọn menu">
                 <i class="bi bi-text-indent-left"></i>
             </button>
@@ -52,16 +111,36 @@
             </li>
 
             {% if session.get('role') == 'admin' %}
-            <li class="sidebar-dropdown {% if request.endpoint in ['students_manager', 'add_student', 'edit_student', 'import_students'] %}open{% endif %}">
-                <button type="button" class="sidebar-dropdown-btn {% if request.endpoint in ['students_manager', 'add_student', 'edit_student', 'import_students'] %}active{% endif %}">
+            {% set is_student_route = request.endpoint in ['students_manager', 'add_student', 'edit_student', 'import_students'] %}
+            <li class="sidebar-dropdown {% if is_student_route %}open{% endif %}">
+                <button type="button" class="sidebar-dropdown-btn {% if is_student_route %}active{% endif %}">
                     <span><i class="bi bi-people me-2"></i><span class="sidebar-text">Quản Lý Sinh Viên</span></span>
                     <i class="bi bi-chevron-down arrow"></i>
                 </button>
-                <ul class="sidebar-submenu">
-                    <li><a href="{{ url_for('students_manager') }}">Danh sách sinh viên</a></li>
-                    <li><a href="{{ url_for('add_student') }}">Thêm sinh viên</a></li>
-                    <li><a href="{{ url_for('import_students') }}">Nhập từ CSV</a></li>
+                <ul class="sidebar-submenu" {% if is_student_route %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+                    <li>
+                        <a href="{{ url_for('students_manager') }}" class="{% if request.endpoint == 'students_manager' %}active{% endif %}">
+                            <i class="bi bi-dot me-1"></i>Danh sách sinh viên
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('add_student') }}" class="{% if request.endpoint == 'add_student' %}active{% endif %}">
+                            <i class="bi bi-dot me-1"></i>Thêm sinh viên
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('import_students') }}" class="{% if request.endpoint == 'import_students' %}active{% endif %}">
+                            <i class="bi bi-dot me-1"></i>Nhập từ CSV
+                        </a>
+                    </li>
                 </ul>
+            </li>
+
+            <li>
+                <a href="{{ url_for('departments_manager') }}" class="{% if request.endpoint == 'departments_manager' %}active{% endif %}">
+                    <i class="bi bi-building me-2"></i>
+                    <span class="sidebar-text">Quản Lý Khoa</span>
+                </a>
             </li>
 
             <li>
@@ -166,7 +245,6 @@
                 <i class="bi bi-moon-fill" id="themeToggleIcon"></i>
                 <span class="sidebar-text">Chế độ giao diện</span>
             </button>
-
             <a href="{{ url_for('logout') }}" class="theme-btn text-danger">
                 <i class="bi bi-box-arrow-right text-danger"></i>
                 <span class="sidebar-text text-danger">Đăng Xuất</span>
@@ -212,6 +290,7 @@
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 <script>
 const rootHtml = document.documentElement;
@@ -244,21 +323,10 @@ if (toggleBtn) {
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const dropdownButtons = document.querySelectorAll('.sidebar-dropdown-btn');
-
-    dropdownButtons.forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            const dropdown = btn.closest('.sidebar-dropdown');
-            dropdown.classList.toggle('open');
-        });
-    });
-
     const savedSidebar = localStorage.getItem('sidebarCollapsed');
-
     if (savedSidebar === 'true') {
         body.classList.add('sidebar-collapsed');
     }
-
     if (sidebarToggleBtn) {
         sidebarToggleBtn.addEventListener('click', function () {
             body.classList.toggle('sidebar-collapsed');

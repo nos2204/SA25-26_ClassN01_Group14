@@ -7,9 +7,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        /* =======================================================
-           CẤU HÌNH BIẾN MÀU THÍCH ỨNG CHO TRANG ĐĂNG NHẬP
-           ======================================================= */
         :root, [data-bs-theme="light"] {
             --bg-body: #f4f6f9;
             --bg-card: #ffffff;
@@ -35,7 +32,6 @@
             transition: background-color 0.3s ease, color 0.3s ease; 
         }
         
-        /* Đồng bộ màu sắc hộp đăng nhập theo chế độ màn hình */
         .login-card { 
             background-color: var(--bg-card) !important;
             border: 1px solid var(--border-input) !important;
@@ -44,15 +40,9 @@
             transition: all 0.3s ease; 
         }
 
-        .text-muted {
-            color: var(--text-sub) !important;
-        }
+        .text-muted { color: var(--text-sub) !important; }
+        .form-label { color: var(--text-main) !important; }
 
-        .form-label {
-            color: var(--text-main) !important;
-        }
-
-        /* Đồng bộ ô nhập liệu */
         .form-control, .input-group-text {
             background-color: var(--bg-card) !important;
             color: var(--text-main) !important;
@@ -61,20 +51,19 @@
         .form-control:focus {
             background-color: var(--bg-card) !important;
             color: var(--text-main) !important;
+            box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
         }
 
         .theme-toggle-btn { 
-            position: absolute; 
-            top: 20px; 
-            right: 20px; 
-            border-radius: 50%; 
-            width: 40px; 
-            height: 40px; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
+            position: absolute; top: 20px; right: 20px; border-radius: 50%; 
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; 
+            z-index: 1000;
         }
     </style>
+    <script>
+        const savedTheme = localStorage.getItem('theme') || 'light';
+        document.documentElement.setAttribute('data-bs-theme', savedTheme);
+    </script>
 </head>
 <body>
 
@@ -85,6 +74,19 @@
 <div class="container">
     <div class="row justify-content-center">
         <div class="col-md-5 col-sm-8">
+
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, msg in messages %}
+                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show mb-3" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        {{ msg }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
             <div class="card login-card p-4">
                 <div class="text-center mb-4">
                     <i class="bi bi-mortarboard-fill text-primary" style="font-size: 3rem;"></i>
@@ -114,14 +116,13 @@
                         <i class="bi bi-box-arrow-in-right me-2"></i>Đăng nhập
                     </button>
                 </form>
-
             </div>
         </div>
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// Logic Ẩn/Hiện mật khẩu
 function togglePwd() {
     const inp  = document.getElementById('pwdInput');
     const icon = document.getElementById('eyeIcon');
@@ -134,15 +135,11 @@ function togglePwd() {
     }
 }
 
-// Logic quản lý chế độ Sáng/Tối
 const themeToggle = document.getElementById('themeToggle');
 const themeIcon = document.getElementById('themeIcon');
 const htmlEl = document.documentElement;
 
-// Đọc tùy chọn cũ từ bộ nhớ máy người dùng
-const savedTheme = localStorage.getItem('theme') || 'light';
-htmlEl.setAttribute('data-bs-theme', savedTheme);
-updateThemeIcon(savedTheme);
+updateThemeIcon(htmlEl.getAttribute('data-bs-theme'));
 
 themeToggle.addEventListener('click', () => {
     const currentTheme = htmlEl.getAttribute('data-bs-theme');

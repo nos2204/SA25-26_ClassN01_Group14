@@ -1,26 +1,30 @@
 document.addEventListener('DOMContentLoaded', function () {
 
+    // 1. Tự động ẩn các thông báo (Alert) sau 5 giây
     document.querySelectorAll('.alert.alert-dismissible').forEach(function (alert) {
         setTimeout(function () {
             const bsAlert = bootstrap.Alert.getOrCreateInstance(alert);
-            bsAlert.close();
+            if (bsAlert) bsAlert.close();
         }, 5000);
     });
 
-    function getCsrfToken() {
-        const meta = document.querySelector('meta[name="csrf-token"]');
-        return meta ? meta.getAttribute('content') : '';
-    }
+    // 2. XỬ LÝ ĐÓNG/MỞ MENU DROPDOWN MƯỢT MÀ Ở SIDEBAR
+    const dropdownButtons = document.querySelectorAll('.sidebar-dropdown-btn');
+    dropdownButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const dropdown = btn.closest('.sidebar-dropdown');
+            const submenu = dropdown.querySelector('.sidebar-submenu');
+            
+            dropdown.classList.toggle('open');
+            if (dropdown.classList.contains('open')) {
+                submenu.style.display = 'block';
+            } else {
+                submenu.style.display = 'none';
+            }
+        });
+    });
 
-    const originalFetch = window.fetch;
-    window.fetch = function (url, options = {}) {
-        options.headers = options.headers || {};
-        if (!options.headers['X-CSRF-Token']) {
-            options.headers['X-CSRF-Token'] = getCsrfToken();
-        }
-        return originalFetch(url, options);
-    };
-
+    // 3. Kiểm tra hợp lệ dữ liệu nhập Form Sinh Viên (Validation)
     const studentForm = document.querySelector('form[action*="student"]');
     if (studentForm) {
         studentForm.addEventListener('submit', function (e) {
@@ -63,6 +67,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }, { once: true });
     }
 
+    // 4. Tự động tính điểm tổng kết & Đổi màu chữ trực tiếp trên bảng điểm
     function calcFinalForRow(row) {
         const pgInput   = row.querySelector('input[name^="progress_"]');
         const egInput   = row.querySelector('input[name^="exam_"]');
@@ -101,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // 5. Hiển thị thông tin Tên & Dung lượng file CSV được tải lên
     document.querySelectorAll('input[type="file"]').forEach(function (fileInput) {
         fileInput.addEventListener('change', function () {
             const file = this.files[0];
@@ -117,10 +123,12 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    // 6. Khởi tạo chức năng Tooltip chỉ dẫn của Bootstrap
     document.querySelectorAll('[title]').forEach(function (el) {
         new bootstrap.Tooltip(el, { trigger: 'hover' });
     });
 
+    // 7. Cảnh báo mất dữ liệu khi rời trang nhập điểm mà quên bấm lưu
     const gradeForm = document.querySelector('form:has(.grade-input)');
     if (gradeForm) {
         let formDirty = false;

@@ -1,41 +1,147 @@
 {% extends 'base.html' %}
-{% block title %}Import Sinh viên — QLSV{% endblock %}
+{% block title %}Danh Sách Sinh Viên — QLSV{% endblock %}
 
 {% block content %}
-<div class="row justify-content-center">
-    <div class="col-md-7">
-        <div class="card shadow-sm">
-            <div class="card-header fw-semibold">
-                <i class="bi bi-upload me-2"></i>Import danh sách sinh viên từ CSV
-            </div>
-            <div class="card-body">
-                <div class="alert alert-info">
-                    <strong>Định dạng file CSV:</strong><br>
-                    Hàng đầu tiên là tiêu đề, các cột bao gồm:<br>
-                    <code>student_code, full_name, gender, email, phone, class_name, date_of_birth</code><br>
-                    <small class="text-muted">Chỉ <code>student_code</code> và <code>full_name</code> là bắt buộc.
-                    Ngày sinh định dạng <code>YYYY-MM-DD</code>. Mã SV trùng sẽ bị bỏ qua.</small>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h3 class="mb-0 fw-semibold text-body-emphasis">
+        <i class="bi bi-people-fill me-2 text-primary"></i>Quản Lý Sinh Viên
+    </h3>
+    <a href="{{ url_for('add_student') }}" class="btn btn-primary">
+        <i class="bi bi-person-plus-fill me-1"></i> Thêm sinh viên mới
+    </a>
+</div>
+
+<div class="card shadow-sm border-0 mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('students_manager') }}" class="row g-3">
+            <div class="col-md-5 col-lg-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-transparent text-muted"><i class="bi bi-search"></i></span>
+                    <input type="text" name="q" class="form-control" placeholder="Tìm theo Mã SV, Tên hoặc Email..." value="{{ keyword or '' }}">
                 </div>
-                <a href="data:text/csv;charset=utf-8,student_code%2Cfull_name%2Cgender%2Cemail%2Cphone%2Cclass_name%2Cdate_of_birth%0ASV001%2CNguy%E1%BB%85n+V%C4%83n+A%2CNam%2Ca%40email.com%2C0901234567%2CCNTT01%2C2003-05-15"
-                   download="mau_import_sv.csv" class="btn btn-outline-secondary btn-sm mb-3">
-                    <i class="bi bi-download me-1"></i>Tải file mẫu CSV
-                </a>
-                <form method="POST" enctype="multipart/form-data">
-                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                    <div class="mb-3">
-                        <label class="form-label">Chọn file CSV <span class="text-danger">*</span></label>
-                        <input type="file" name="csv_file" accept=".csv" class="form-control" required>
-                    </div>
-                    <div class="d-flex gap-2">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-upload me-1"></i>Import ngay
-                        </button>
-                        <a href="{{ url_for('students_manager') }}" class="btn btn-outline-secondary">
-                            <i class="bi bi-arrow-left me-1"></i>Quay lại
-                        </a>
-                    </div>
-                </form>
             </div>
+            <div class="col-md-3 col-lg-3">
+                <select name="class_id" class="form-select">
+                    <option value="">-- Tất cả lớp học --</option>
+                    {% for c in classes %}
+                        <option value="{{ c.id }}" {% if class_id|string == c.id|string %}selected{% endif %}>{{ c.class_name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-3">
+                <select name="gender" class="form-select">
+                    <option value="">-- Tất cả giới tính --</option>
+                    <option value="Nam" {% if gender == 'Nam' %}selected{% endif %}>Nam</option>
+                    <option value="Nữ" {% if gender == 'Nữ' %}selected{% endif %}>Nữ</option>
+                </select>
+            </div>
+            <div class="col-md-2 col-lg-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-funnel me-1"></i> Lọc dữ liệu
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-header bg-transparent fw-semibold py-3">
+        <i class="bi bi-table me-2 text-secondary"></i>Danh sách dữ liệu sinh viên
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col" class="ps-4" style="width: 60px;">#</th>
+                        <th scope="col">Mã Sinh Viên</th>
+                        <th scope="col">Họ và Tên</th>
+                        <th scope="col">Giới tính</th>
+                        <th scope="col">Lớp học</th>
+                        <th scope="col">Email / Số điện thoại</th>
+                        <th scope="col">Ngày sinh</th>
+                        <th scope="col" class="text-end pe-4" style="width: 140px;">Hành động</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if students %}
+                        {% for student in students %}
+                        <tr>
+                            <td class="ps-4 text-muted">{{ loop.index + (page - 1) * 10 if page else loop.index }}</td>
+                            <td><strong class="text-primary">{{ student.student_code }}</strong></td>
+                            <td>
+                                <span class="fw-semibold">{{ student.full_name }}</span>
+                            </td>
+                            <td>
+                                {% if student.gender == 'Nam' %}
+                                    <span class="badge bg-info-subtle text-info"><i class="bi bi-gender-male me-1"></i>Nam</span>
+                                {% elif student.gender == 'Nữ' %}
+                                    <span class="badge bg-danger-subtle text-danger"><i class="bi bi-gender-female me-1"></i>Nữ</span>
+                                {% else %}
+                                    <span class="badge bg-secondary-subtle text-secondary">{{ student.gender or 'Khác' }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">{{ student.class_name or 'Chưa xếp lớp' }}</span>
+                            </td>
+                            <td>
+                                <div class="small"><i class="bi bi-envelope me-1 text-muted"></i>{{ student.email or '---' }}</div>
+                                <div class="small text-muted mt-1"><i class="bi bi-telephone me-1"></i>{{ student.phone or '---' }}</div>
+                            </td>
+                            <td class="text-muted small">
+                                {{ student.date_of_birth if student.date_of_birth else '---' }}
+                            </td>
+                            <td class="text-end pe-4">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ url_for('student_detail', student_id=student.id) }}" class="btn btn-outline-secondary" title="Xem chi tiết">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ url_for('manage_grades', student_id=student.id) }}" class="btn btn-outline-success" title="Quản lý điểm">
+                                        <i class="bi bi-bookmark-star"></i>
+                                    </a>
+                                    <a href="{{ url_for('edit_student', student_id=student.id) }}" class="btn btn-outline-primary" title="Sửa thông tin">
+                                        <i class="bi bi-pencil-square"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" title="Xóa sinh viên" 
+                                            data-bs-toggle="modal" data-bs-target="#deleteModal{{ student.id }}">
+                                        <i class="bi bi-trash3"></i>
+                                    </button>
+                                </div>
+
+                                <div class="modal fade text-start" id="deleteModal{{ student.id }}" data-bs-backdrop="static" tabindex="-1" aria-hidden="true">
+                                    <div class="modal-dialog modal-dialog-centered">
+                                        <div class="modal-content">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i>Xác nhận xóa</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            </div>
+                                            <div class="modal-body">
+                                                Bạn có chắc chắn muốn xóa sinh viên <strong>{{ student.full_name }}</strong> (Mã: {{ student.student_code }}) ra khỏi hệ thống? Hành động này không thể hoàn tác.
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Hủy bỏ</button>
+                                                <form action="{{ url_for('delete_student', student_id=student.id) }}" method="POST" class="d-inline">
+                                                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                                    <button type="submit" class="btn btn-danger btn-sm">Đồng ý xóa</button>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-person-x display-6 d-block mb-3 text-secondary"></i>
+                                Chưa có dữ liệu sinh viên nào được tìm thấy.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
