@@ -147,35 +147,39 @@ def server_error(e):
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
+    old_username = ''
+
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '')
-        user     = UserModel.query.filter_by(username=username).first()
+        old_username = username
+
+        user = UserModel.query.filter_by(username=username).first()
 
         locked, wait = check_brute_force(user)
         if locked:
             flash(f'Tài khoản bị khoá tạm thời. Thử lại sau {wait}.', 'danger')
-            return render_template('login.html')
+            return render_template('login.html', old_username=old_username)
 
         if user and user.check_password(password):
             record_success_login(user)
-            session['token']             = generate_jwt_token(user.username, user.role)
-            session['username']          = user.username
-            session['role']              = user.role
+
+            session['token'] = generate_jwt_token(user.username, user.role)
+            session['username'] = user.username
+            session['role'] = user.role
             session['linked_student_id'] = user.student_id
             session['linked_teacher_id'] = user.teacher_id
+
             flash('Đăng nhập thành công!', 'success')
             return redirect(url_for('dashboard'))
 
         if user:
             record_failed_login(user)
-            remaining = max(0, (user.failed_login_count or 0))
-            left = max(0, 5 - remaining)
-            flash(f'Sai tài khoản hoặc mật khẩu. Còn {left} lần thử.', 'danger')
-        else:
-            flash('Tài khoản không tồn tại.', 'danger')
 
-    return render_template('login.html')
+        flash('Tài khoản hoặc mật khẩu không chính xác!', 'danger')
+        return render_template('login.html', old_username=old_username)
+
+    return render_template('login.html', old_username=old_username)
 
 
 @app.route('/logout')

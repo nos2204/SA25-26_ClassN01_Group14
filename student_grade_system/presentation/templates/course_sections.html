@@ -2,16 +2,200 @@
 {% block title %}Quản lý Lớp học phần — QLSV{% endblock %}
 {% block content %}
 <div class="row g-3">
-  <div class="col-lg-4"><div class="card shadow-sm"><div class="card-header fw-semibold"><i class="bi bi-plus-circle me-2"></i>Mở lớp học phần</div><div class="card-body"><form method="POST" action="{{ url_for('add_course_section') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <div class="mb-3"><label class="form-label">Mã lớp HP *</label><input name="section_code" class="form-control" required placeholder="VD: PY_N01"></div>
-    <div class="mb-3"><label class="form-label">Môn học *</label><select name="subject_id" class="form-select" required>{% for s in subjects %}<option value="{{ s.id }}">{{ s.subject_code }} - {{ s.subject_name }}</option>{% endfor %}</select></div>
-    <div class="mb-3"><label class="form-label">Học kỳ *</label><select name="semester_id" class="form-select" required>{% for s in semesters %}<option value="{{ s.id }}">{{ s.display_name }}</option>{% endfor %}</select></div>
-    <div class="mb-3"><label class="form-label">Giảng viên</label><select name="teacher_id" class="form-select"><option value="">— Chưa phân công —</option>{% for t in teachers %}<option value="{{ t.id }}">{{ t.teacher_code }} - {{ t.full_name }}</option>{% endfor %}</select></div>
-    <div class="row"><div class="col-6 mb-3"><label class="form-label">Sĩ số tối đa</label><input name="max_students" type="number" value="50" class="form-control"></div><div class="col-6 mb-3"><label class="form-label">Phòng</label><input name="room" class="form-control" placeholder="A101"></div></div>
-    <div class="mb-3"><label class="form-label">Lịch học</label><input name="schedule" class="form-control" placeholder="Thứ 2, tiết 1-3"></div>
-    <div class="mb-3"><label class="form-label">Trạng thái</label><select name="status" class="form-select"><option value="open">Mở đăng ký</option><option value="closed">Đóng đăng ký</option><option value="studying">Đang học</option><option value="finished">Đã kết thúc</option></select></div>
-    <button class="btn btn-primary w-100"><i class="bi bi-save me-1"></i>Lưu lớp HP</button>
-  </form></div></div></div>
-  <div class="col-lg-8"><div class="card shadow-sm"><div class="card-header fw-semibold d-flex justify-content-between"><span><i class="bi bi-collection me-2"></i>Danh sách lớp học phần</span><span class="badge bg-secondary">{{ sections|length }} lớp HP</span></div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover table-striped mb-0 align-middle"><thead class="table-dark"><tr><th>Mã lớp HP</th><th>Môn</th><th>Học kỳ</th><th>GV</th><th>Lịch/Phòng</th><th>Sĩ số</th><th>Trạng thái</th><th class="text-center">Thao tác</th></tr></thead><tbody>{% for s in sections %}<tr><td><code>{{ s.section_code }}</code></td><td>{{ s.subject.subject_name }}</td><td>{{ s.semester.display_name }}</td><td>{{ s.teacher.full_name if s.teacher else '—' }}</td><td><small>{{ s.schedule or '—' }}<br>{{ s.room or '' }}</small></td><td>{{ s.current_students }}/{{ s.max_students }}</td><td><span class="badge {% if s.status == 'open' %}bg-success{% elif s.grades_locked %}bg-danger{% else %}bg-secondary{% endif %}">{{ 'Khóa điểm' if s.grades_locked else s.status }}</span></td><td class="text-center"><div class="btn-group btn-group-sm"><a class="btn btn-outline-primary" href="{{ url_for('section_grades', section_id=s.id) }}" title="Nhập điểm"><i class="bi bi-pencil-square"></i></a><form method="POST" action="{{ url_for('toggle_section_lock', section_id=s.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-warning" title="Khóa/mở khóa điểm"><i class="bi bi-lock"></i></button></form><form method="POST" action="{{ url_for('delete_course_section', section_id=s.id) }}" onsubmit="return confirm('Xóa lớp học phần {{ s.section_code }}?')"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button></form></div></td></tr>{% else %}<tr><td colspan="8" class="text-center text-muted py-4">Chưa có lớp học phần.</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+
+  <!-- Form mở lớp học phần -->
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold">
+        <i class="bi bi-plus-circle me-2"></i>Mở lớp học phần
+      </div>
+
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('add_course_section') }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+          <div class="mb-3">
+            <label class="form-label">Mã lớp HP *</label>
+            <input name="section_code" class="form-control" required placeholder="VD: PY_N01">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Môn học *</label>
+            <select name="subject_id" class="form-select" required>
+              {% for s in subjects %}
+              <option value="{{ s.id }}">
+                {{ s.subject_code }} - {{ s.subject_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Học kỳ *</label>
+            <select name="semester_id" class="form-select" required>
+              {% for s in semesters %}
+              <option value="{{ s.id }}">
+                {{ s.display_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Giảng viên</label>
+            <select name="teacher_id" class="form-select">
+              <option value="">— Chưa phân công —</option>
+              {% for t in teachers %}
+              <option value="{{ t.id }}">
+                {{ t.teacher_code }} - {{ t.full_name }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="row">
+            <div class="col-6 mb-3">
+              <label class="form-label">Sĩ số tối đa</label>
+              <input name="max_students" type="number" value="50" class="form-control">
+            </div>
+
+            <div class="col-6 mb-3">
+              <label class="form-label">Phòng</label>
+              <input name="room" class="form-control" placeholder="A101">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Lịch học</label>
+            <input name="schedule" class="form-control" placeholder="Thứ 2, tiết 1-3">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label">Trạng thái</label>
+            <select name="status" class="form-select">
+              <option value="open">Mở đăng ký</option>
+              <option value="closed">Đóng đăng ký</option>
+              <option value="studying">Đang học</option>
+              <option value="finished">Đã kết thúc</option>
+            </select>
+          </div>
+
+          <button class="btn btn-primary w-100">
+            <i class="bi bi-save me-1"></i>Lưu lớp HP
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Danh sách lớp học phần -->
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-header fw-semibold d-flex justify-content-between">
+        <span>
+          <i class="bi bi-collection me-2"></i>Danh sách lớp học phần
+        </span>
+        <span class="badge bg-secondary">
+          {{ sections|length }} lớp HP
+        </span>
+      </div>
+
+      <div class="card-body p-0">
+        <div class="table-responsive">
+
+          <table class="table table-hover table-striped mb-0 align-middle">
+            <thead class="table-dark">
+              <tr>
+                <th>Mã lớp HP</th>
+                <th>Môn</th>
+                <th>Học kỳ</th>
+                <th>GV</th>
+                <th>Lịch/Phòng</th>
+                <th>Sĩ số</th>
+                <th>Trạng thái</th>
+                <th class="text-center">Thao tác</th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {% for s in sections %}
+              <tr>
+                <td><code>{{ s.section_code }}</code></td>
+                <td>{{ s.subject.subject_name }}</td>
+                <td>{{ s.semester.display_name }}</td>
+                <td>{{ s.teacher.full_name if s.teacher else '—' }}</td>
+
+                <td>
+                  <small>
+                    {{ s.schedule or '—' }}<br>
+                    {{ s.room or '' }}
+                  </small>
+                </td>
+
+                <td>
+                  {{ s.current_students }}/{{ s.max_students }}
+                </td>
+
+                <td>
+                  <span class="badge
+                    {% if s.status == 'open' %}
+                      bg-success
+                    {% elif s.grades_locked %}
+                      bg-danger
+                    {% else %}
+                      bg-secondary
+                    {% endif %}">
+                    {{ 'Khóa điểm' if s.grades_locked else s.status }}
+                  </span>
+                </td>
+
+                <td class="text-center">
+                  <div class="btn-group btn-group-sm">
+
+                    <!-- Nhập điểm -->
+                    <a class="btn btn-outline-primary"
+                       href="{{ url_for('section_grades', section_id=s.id) }}">
+                      <i class="bi bi-pencil-square"></i>
+                    </a>
+
+                    <!-- Khóa điểm -->
+                    <form method="POST"
+                          action="{{ url_for('toggle_section_lock', section_id=s.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-outline-warning">
+                        <i class="bi bi-lock"></i>
+                      </button>
+                    </form>
+
+                    <!-- Xóa -->
+                    <form method="POST"
+                          action="{{ url_for('delete_course_section', section_id=s.id) }}"
+                          onsubmit="return confirm('Xóa lớp học phần {{ s.section_code }}?')">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-outline-danger">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+
+                  </div>
+                </td>
+              </tr>
+
+              {% else %}
+              <tr>
+                <td colspan="8" class="text-center text-muted py-4">
+                  Chưa có lớp học phần.
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+
+          </table>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
 </div>
 {% endblock %}

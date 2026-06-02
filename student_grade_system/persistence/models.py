@@ -1,3 +1,4 @@
+# persistence/models.py
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
@@ -10,7 +11,7 @@ class UserModel(db.Model):
     id            = db.Column(db.Integer, primary_key=True)
     username      = db.Column(db.String(50), unique=True, nullable=False)
     password_hash = db.Column(db.String(255), nullable=False)
-    role          = db.Column(db.String(20), nullable=False, default='student')
+    role          = db.Column(db.String(20), nullable=False, default='student')  # admin / teacher / student
     student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=True)
     teacher_id    = db.Column(db.Integer, db.ForeignKey('teachers.id'), nullable=True)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
@@ -72,7 +73,7 @@ class StudentModel(db.Model):
     gender          = db.Column(db.String(10))
     email           = db.Column(db.String(120), nullable=True)
     phone           = db.Column(db.String(20), nullable=True)
-    class_name      = db.Column(db.String(50), nullable=True)
+    class_name      = db.Column(db.String(50), nullable=True)  # dữ liệu cũ, vẫn giữ để không mất dữ liệu
     class_id        = db.Column(db.Integer, db.ForeignKey('classes.id'), nullable=True)
     date_of_birth   = db.Column(db.Date, nullable=True)
     address         = db.Column(db.String(255), nullable=True)
@@ -111,7 +112,7 @@ class SubjectModel(db.Model):
     credits         = db.Column(db.Integer, nullable=False)
     department_id   = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True)
 
-    grades   = db.relationship('GradeModel', backref='subject', cascade='all, delete-orphan', lazy=True)
+    grades = db.relationship('GradeModel', backref='subject', cascade='all, delete-orphan', lazy=True)
     sections = db.relationship('CourseSectionModel', backref='subject', lazy=True)
 
 
@@ -124,7 +125,7 @@ class SemesterModel(db.Model):
 
     __table_args__ = (db.UniqueConstraint('name', 'academic_year', name='uq_semester_year'),)
 
-    grades   = db.relationship('GradeModel', backref='semester', lazy=True)
+    grades = db.relationship('GradeModel', backref='semester', lazy=True)
     sections = db.relationship('CourseSectionModel', backref='semester', lazy=True)
 
     @property
@@ -142,7 +143,7 @@ class CourseSectionModel(db.Model):
     max_students  = db.Column(db.Integer, default=50)
     room          = db.Column(db.String(50), nullable=True)
     schedule      = db.Column(db.String(120), nullable=True)
-    status        = db.Column(db.String(30), default='open')
+    status        = db.Column(db.String(30), default='open')  # open / closed / studying / finished / locked
     grades_locked = db.Column(db.Boolean, default=False)
     created_at    = db.Column(db.DateTime, default=datetime.utcnow)
 
@@ -206,9 +207,9 @@ class GradeModel(db.Model):
 
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
-    id         = db.Column(db.Integer, primary_key=True)
-    actor      = db.Column(db.String(50), nullable=False)
-    action     = db.Column(db.String(50), nullable=False)
-    target     = db.Column(db.String(200), nullable=True)
-    detail     = db.Column(db.Text, nullable=True)
-    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    id          = db.Column(db.Integer, primary_key=True)
+    actor       = db.Column(db.String(50), nullable=False)
+    action      = db.Column(db.String(50), nullable=False)
+    target      = db.Column(db.String(200), nullable=True)
+    detail      = db.Column(db.Text, nullable=True)
+    created_at  = db.Column(db.DateTime, default=datetime.utcnow)

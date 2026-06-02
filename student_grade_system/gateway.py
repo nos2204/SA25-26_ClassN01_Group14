@@ -1,3 +1,4 @@
+# gateway.py  —  API Gateway: xác thực, phân quyền, CSRF, brute-force guard
 import os
 import sys
 import secrets
@@ -21,8 +22,8 @@ def generate_csrf_token():
 
 def validate_csrf():
     if request.method in ('POST', 'PUT', 'DELETE', 'PATCH'):
-        token      = session.get('csrf_token')
-        form_token = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
+        token       = session.get('csrf_token')
+        form_token  = request.form.get('csrf_token') or request.headers.get('X-CSRF-Token')
         if not token or not form_token:
             abort(403, description='CSRF token thiếu.')
         if not secrets.compare_digest(
@@ -40,8 +41,8 @@ def token_required(f):
             flash('Chưa đăng nhập hoặc phiên làm việc đã hết hạn!', 'danger')
             return redirect(url_for('login'))
         try:
-            secret = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
-            data   = jwt.decode(token, secret, algorithms=['HS256'])
+            secret    = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
+            data      = jwt.decode(token, secret, algorithms=['HS256'])
             request.user_data = data
         except jwt.ExpiredSignatureError:
             session.clear()

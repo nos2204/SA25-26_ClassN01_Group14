@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{% block title %}Hệ Thống Quản Lý Sinh Viên{% endblock %}</title>
 
     <script>
@@ -15,68 +16,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-
-    <style>
-    /* CSS cho Sidebar Dropdown */
-    .sidebar-submenu {
-        list-style: none;
-        padding-left: 1.5rem;
-        margin-bottom: 0.5rem;
-        display: none;
-    }
-    .sidebar-submenu li a {
-        display: flex;
-        align-items: center;
-        padding: 0.5rem 1rem;
-        color: var(--bs-body-color);
-        text-decoration: none;
-        font-size: 0.9rem;
-        border-radius: 0.25rem;
-        transition: all 0.2s ease;
-        opacity: 0.8;
-    }
-    .sidebar-submenu li a:hover {
-        background-color: rgba(var(--bs-primary-rgb), 0.1);
-        color: var(--bs-primary);
-        opacity: 1;
-    }
-    .sidebar-submenu li a.active {
-        background-color: var(--bs-primary);
-        color: #ffffff !important;
-        font-weight: 500;
-        opacity: 1;
-    }
-    .sidebar-dropdown .arrow {
-        transition: transform 0.2s ease;
-        margin-left: auto;
-    }
-    .sidebar-dropdown.open .arrow {
-        transform: rotate(180deg);
-    }
-    .sidebar-dropdown-btn {
-        width: 100%;
-        background: none;
-        border: none;
-        padding: 0.75rem 1rem;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        color: var(--bs-body-color);
-        border-radius: 0.375rem;
-        text-align: left;
-        transition: all 0.2s ease;
-    }
-    .sidebar-dropdown-btn:hover {
-        background-color: rgba(var(--bs-body-color-rgb), 0.05);
-    }
-    .sidebar-dropdown-btn.active {
-        font-weight: 600;
-        color: var(--bs-primary);
-    }
-    .final-live {
-        transition: color 0.3s ease, font-weight 0.3s ease;
-    }
-    </style>
 </head>
 
 <body>
@@ -85,258 +24,404 @@
 <div class="app-layout">
 
     <aside class="sidebar-custom shadow-sm">
+
         <div class="sidebar-top">
             <a class="sidebar-brand" href="{{ url_for('dashboard') }}">
                 <i class="bi bi-mortarboard-fill me-2"></i>
                 <span class="sidebar-text">QLSV System</span>
             </a>
-            <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" title="Thu gọn menu">
-                <i class="bi bi-text-indent-left"></i>
+
+            <button class="sidebar-toggle-btn" id="sidebarToggleBtn" type="button" title="Ẩn / hiện menu">
+                <i class="bi bi-three-dots"></i>
             </button>
         </div>
 
         <div class="sidebar-user">
-            <div><strong>Tài khoản:</strong> {{ session.get('username') }}</div>
-            <div class="mt-1">
-                <span class="badge bg-primary text-capitalize">{{ session.get('role') }}</span>
-            </div>
+            <i class="bi bi-person-circle me-1"></i>
+            <span class="sidebar-text">{{ session['username'] }}</span>
+            <span class="badge bg-{% if session['role'] == 'admin' %}danger{% elif session['role'] == 'teacher' %}primary{% else %}secondary{% endif %} ms-1">
+                {{ session['role'] }}
+            </span>
         </div>
 
         <ul class="sidebar-menu">
+
             <li>
-                <a href="{{ url_for('dashboard') }}" class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+                <a class="{% if request.endpoint == 'dashboard' %}active{% endif %}"
+                   href="{{ url_for('dashboard') }}">
                     <i class="bi bi-speedometer2 me-2"></i>
-                    <span class="sidebar-text">Bảng Điều Khiển</span>
+                    <span class="sidebar-text">Dashboard</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint in ['students_manager','student_detail','add_student','edit_student','manage_grades'] %}active{% endif %}"
+                   href="{{ url_for('students_manager') }}">
+                    <i class="bi bi-people me-2"></i>
+                    <span class="sidebar-text">Sinh viên</span>
                 </a>
             </li>
 
             {% if session.get('role') == 'admin' %}
-            {% set is_student_route = request.endpoint in ['students_manager', 'add_student', 'edit_student', 'import_students'] %}
-            <li class="sidebar-dropdown {% if is_student_route %}open{% endif %}">
-                <button type="button" class="sidebar-dropdown-btn {% if is_student_route %}active{% endif %}">
-                    <span><i class="bi bi-people me-2"></i><span class="sidebar-text">Quản Lý Sinh Viên</span></span>
+            <li class="sidebar-dropdown">
+                <button type="button"
+                        class="sidebar-dropdown-btn {% if request.endpoint in ['subjects_manager','semesters_manager','departments_manager','classes_manager','teachers_manager','course_sections_manager'] %}active{% endif %}">
+                    <span>
+                        <i class="bi bi-grid me-2"></i>
+                        <span class="sidebar-text">Danh mục</span>
+                    </span>
                     <i class="bi bi-chevron-down arrow"></i>
                 </button>
-                <ul class="sidebar-submenu" {% if is_student_route %}style="display: block;"{% else %}style="display: none;"{% endif %}>
+
+                <ul class="sidebar-submenu">
                     <li>
-                        <a href="{{ url_for('students_manager') }}" class="{% if request.endpoint == 'students_manager' %}active{% endif %}">
-                            <i class="bi bi-dot me-1"></i>Danh sách sinh viên
+                        <a href="{{ url_for('subjects_manager') }}">
+                            <i class="bi bi-journal-bookmark me-2"></i>
+                            <span class="sidebar-text">Môn học</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ url_for('add_student') }}" class="{% if request.endpoint == 'add_student' %}active{% endif %}">
-                            <i class="bi bi-dot me-1"></i>Thêm sinh viên
+                        <a href="{{ url_for('semesters_manager') }}">
+                            <i class="bi bi-calendar3 me-2"></i>
+                            <span class="sidebar-text">Học kỳ</span>
                         </a>
                     </li>
                     <li>
-                        <a href="{{ url_for('import_students') }}" class="{% if request.endpoint == 'import_students' %}active{% endif %}">
-                            <i class="bi bi-dot me-1"></i>Nhập từ CSV
+                        <a href="{{ url_for('departments_manager') }}">
+                            <i class="bi bi-building me-2"></i>
+                            <span class="sidebar-text">Khoa / Ngành</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('classes_manager') }}">
+                            <i class="bi bi-diagram-3 me-2"></i>
+                            <span class="sidebar-text">Lớp học</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('teachers_manager') }}">
+                            <i class="bi bi-person-workspace me-2"></i>
+                            <span class="sidebar-text">Giảng viên</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('course_sections_manager') }}">
+                            <i class="bi bi-collection me-2"></i>
+                            <span class="sidebar-text">Lớp học phần</span>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+
+            <li class="sidebar-dropdown">
+                <button type="button"
+                        class="sidebar-dropdown-btn {% if request.endpoint in ['import_students','import_grades'] %}active{% endif %}">
+                    <span>
+                        <i class="bi bi-upload me-2"></i>
+                        <span class="sidebar-text">Import</span>
+                    </span>
+                    <i class="bi bi-chevron-down arrow"></i>
+                </button>
+
+                <ul class="sidebar-submenu">
+                    <li>
+                        <a href="{{ url_for('import_students') }}">
+                            <i class="bi bi-person-lines-fill me-2"></i>
+                            <span class="sidebar-text">Import sinh viên</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="{{ url_for('import_grades') }}">
+                            <i class="bi bi-table me-2"></i>
+                            <span class="sidebar-text">Import điểm</span>
                         </a>
                     </li>
                 </ul>
             </li>
 
             <li>
-                <a href="{{ url_for('departments_manager') }}" class="{% if request.endpoint == 'departments_manager' %}active{% endif %}">
-                    <i class="bi bi-building me-2"></i>
-                    <span class="sidebar-text">Quản Lý Khoa</span>
+                <a class="{% if request.endpoint == 'users_manager' %}active{% endif %}"
+                   href="{{ url_for('users_manager') }}">
+                    <i class="bi bi-person-gear me-2"></i>
+                    <span class="sidebar-text">Quản lý tài khoản</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('classes_manager') }}" class="{% if request.endpoint == 'classes_manager' %}active{% endif %}">
-                    <i class="bi bi-collection me-2"></i>
-                    <span class="sidebar-text">Quản Lý Lớp Học</span>
+                <a class="{% if request.endpoint == 'audit_log' %}active{% endif %}"
+                   href="{{ url_for('audit_log') }}">
+                    <i class="bi bi-clock-history me-2"></i>
+                    <span class="sidebar-text">Nhật ký</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('teachers_manager') }}" class="{% if request.endpoint == 'teachers_manager' %}active{% endif %}">
-                    <i class="bi bi-person-badge me-2"></i>
-                    <span class="sidebar-text">Quản Lý Giảng Viên</span>
+                <a class="{% if request.endpoint == 'teacher_sections' %}active{% endif %}"
+                   href="{{ url_for('teacher_sections') }}">
+                    <i class="bi bi-pencil-square me-2"></i>
+                    <span class="sidebar-text">Nhập điểm HP</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('subjects_manager') }}" class="{% if request.endpoint == 'subjects_manager' %}active{% endif %}">
-                    <i class="bi bi-book me-2"></i>
-                    <span class="sidebar-text">Quản Lý Môn Học</span>
+                <a class="{% if request.endpoint == 'enrollments_page' %}active{% endif %}"
+                   href="{{ url_for('enrollments_page') }}">
+                    <i class="bi bi-journal-plus me-2"></i>
+                    <span class="sidebar-text">Đăng ký HP</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('course_sections_manager') }}" class="{% if request.endpoint == 'course_sections_manager' %}active{% endif %}">
-                    <i class="bi bi-layers me-2"></i>
-                    <span class="sidebar-text">Quản Lý Lớp Học Phần</span>
+                <a class="{% if request.endpoint == 'admin_timetable' %}active{% endif %}"
+                   href="{{ url_for('admin_timetable') }}">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    <span class="sidebar-text">Thời khóa biểu</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('semesters_manager') }}" class="{% if request.endpoint == 'semesters_manager' %}active{% endif %}">
-                    <i class="bi bi-calendar-event me-2"></i>
-                    <span class="sidebar-text">Quản Lý Học Kỳ</span>
-                </a>
-            </li>
-
-            <li>
-                <a href="{{ url_for('import_grades') }}" class="{% if request.endpoint == 'import_grades' %}active{% endif %}">
-                    <i class="bi bi-file-earmark-arrow-up me-2"></i>
-                    <span class="sidebar-text">Nhập Điểm CSV</span>
-                </a>
-            </li>
-
-            <li>
-                <a href="{{ url_for('users_manager') }}" class="{% if request.endpoint == 'users_manager' %}active{% endif %}">
-                    <i class="bi bi-shield-lock me-2"></i>
-                    <span class="sidebar-text">Quản Lý Tài Khoản</span>
-                </a>
-            </li>
-
-            <li>
-                <a href="{{ url_for('audit_log') }}" class="{% if request.endpoint == 'audit_log' %}active{% endif %}">
-                    <i class="bi bi-journal-text me-2"></i>
-                    <span class="sidebar-text">Nhật Ký Hệ Thống</span>
+                <a href="{{ url_for('export_excel') }}">
+                    <i class="bi bi-file-earmark-excel me-2"></i>
+                    <span class="sidebar-text">Xuất Excel</span>
                 </a>
             </li>
             {% endif %}
 
             {% if session.get('role') == 'teacher' %}
             <li>
-                <a href="{{ url_for('teacher_sections') }}" class="{% if request.endpoint in ['teacher_sections', 'section_grades'] %}active{% endif %}">
-                    <i class="bi bi-journal-check me-2"></i>
-                    <span class="sidebar-text">Nhập Điểm Lớp HP</span>
+                <a class="{% if request.endpoint == 'teacher_sections' %}active{% endif %}"
+                   href="{{ url_for('teacher_sections') }}">
+                    <i class="bi bi-easel2 me-2"></i>
+                    <span class="sidebar-text">Lớp tôi dạy</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'teacher_timetable' %}active{% endif %}"
+                   href="{{ url_for('teacher_timetable') }}">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    <span class="sidebar-text">TKB giảng viên</span>
                 </a>
             </li>
             {% endif %}
 
             {% if session.get('role') == 'student' %}
             <li>
-                <a href="{{ url_for('my_profile') }}" class="{% if request.endpoint == 'my_profile' %}active{% endif %}">
-                    <i class="bi bi-person-bounding-box me-2"></i>
-                    <span class="sidebar-text">Hồ Sơ Cá Nhân</span>
+                <a class="{% if request.endpoint == 'enrollments_page' %}active{% endif %}"
+                   href="{{ url_for('enrollments_page') }}">
+                    <i class="bi bi-journal-plus me-2"></i>
+                    <span class="sidebar-text">Đăng ký HP</span>
                 </a>
             </li>
 
             <li>
-                <a href="{{ url_for('enrollments_page') }}" class="{% if request.endpoint == 'enrollments_page' %}active{% endif %}">
-                    <i class="bi bi-pencil-square me-2"></i>
-                    <span class="sidebar-text">Đăng Ký Học Phần</span>
+                <a class="{% if request.endpoint == 'student_timetable' %}active{% endif %}"
+                   href="{{ url_for('student_timetable') }}">
+                    <i class="bi bi-calendar-week me-2"></i>
+                    <span class="sidebar-text">TKB sinh viên</span>
+                </a>
+            </li>
+
+            <li>
+                <a class="{% if request.endpoint == 'my_profile' %}active{% endif %}"
+                   href="{{ url_for('my_profile') }}">
+                    <i class="bi bi-person-circle me-2"></i>
+                    <span class="sidebar-text">Hồ sơ của tôi</span>
                 </a>
             </li>
             {% endif %}
 
-            <li>
-                <a href="{{ url_for('timetable_redirect') }}" class="{% if request.endpoint in ['student_timetable', 'teacher_timetable', 'admin_timetable'] %}active{% endif %}">
-                    <i class="bi bi-calendar3 me-2"></i>
-                    <span class="sidebar-text">Thời Khóa Biểu</span>
-                </a>
-            </li>
+            <li class="sidebar-dropdown">
+                <button type="button" class="sidebar-dropdown-btn">
+                    <span>
+                        <i class="bi bi-person-circle me-2"></i>
+                        <span class="sidebar-text">Tài khoản</span>
+                    </span>
+                    <i class="bi bi-chevron-down arrow"></i>
+                </button>
 
-            <li>
-                <a href="{{ url_for('change_password') }}" class="{% if request.endpoint == 'change_password' %}active{% endif %}">
-                    <i class="bi bi-key me-2"></i>
-                    <span class="sidebar-text">Đổi Mật Khẩu</span>
-                </a>
+                <ul class="sidebar-submenu">
+                    <li>
+                        <a href="{{ url_for('change_password') }}">
+                            <i class="bi bi-key me-2"></i>
+                            <span class="sidebar-text">Đổi mật khẩu</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a class="text-danger" href="{{ url_for('logout') }}"
+                           onclick="return confirm('Bạn có chắc muốn đăng xuất?')">
+                            <i class="bi bi-box-arrow-right me-2"></i>
+                            <span class="sidebar-text">Đăng xuất</span>
+                        </a>
+                    </li>
+                </ul>
             </li>
         </ul>
 
         <div class="sidebar-bottom">
-            <button class="theme-btn mb-2" id="themeToggleBtn" type="button">
-                <i class="bi bi-moon-fill" id="themeToggleIcon"></i>
-                <span class="sidebar-text">Chế độ giao diện</span>
+            <button class="theme-btn" id="themeToggleBtn" type="button" title="Đổi giao diện">
+                <i class="bi bi-moon-fill fs-5" id="themeToggleIcon"></i>
+                <span class="sidebar-text">Đổi giao diện</span>
             </button>
-            <a href="{{ url_for('logout') }}" class="theme-btn text-danger">
-                <i class="bi bi-box-arrow-right text-danger"></i>
-                <span class="sidebar-text text-danger">Đăng Xuất</span>
-            </a>
         </div>
     </aside>
 
+    <div id="sidebarOverlay"></div>
+
     <main class="main-content">
-        <div class="container-fluid p-0">
-            {% with messages = get_flashed_messages(with_categories=true) %}
-                {% if messages %}
-                    {% for category, message in messages %}
-                        <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
-                            {{ message }}
-                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                        </div>
-                    {% endfor %}
-                {% endif %}
-            {% endwith %}
-
-            {% block content %}{% endblock %}
-        </div>
-    </main>
-
-</div>
 {% else %}
-<main class="login-content">
-    <div class="container">
+    <main class="login-content">
+{% endif %}
+
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="alert alert-{{ category if category != 'error' else 'danger' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                {% for category, msg in messages %}
+                    <div class="alert alert-{{ category }} fade show custom-alert-box" role="alert">
+                        <span>{{ msg }}</span>
+
+                        <button type="button"
+                                class="btn-close custom-alert-close"
+                                aria-label="Đóng"
+                                onclick="closeFlashAlert(this)">
+                        </button>
                     </div>
                 {% endfor %}
             {% endif %}
         {% endwith %}
 
-        {% block login_content %}{% endblock %}
-    </div>
-</main>
+        {% block content %}{% endblock %}
+
+    </main>
+
+{% if session.get('username') %}
+</div>
 {% endif %}
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
 <script>
-const rootHtml = document.documentElement;
-const body = document.body;
-const toggleBtn = document.getElementById('themeToggleBtn');
-const toggleIcon = document.getElementById('themeToggleIcon');
-const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
-
-function updateTheme(theme) {
-    rootHtml.setAttribute('data-bs-theme', theme);
-    localStorage.setItem('theme', theme);
-    if (toggleIcon) {
-        if (theme === 'dark') {
-            toggleIcon.className = 'bi bi-sun-fill fs-5';
-        } else {
-            toggleIcon.className = 'bi bi-moon-fill fs-5';
-        }
+function closeFlashAlert(button) {
+    const alertBox = button.closest('.alert');
+    if (alertBox) {
+        alertBox.style.display = 'none';
+        alertBox.remove();
     }
-}
-
-const savedTheme = rootHtml.getAttribute('data-bs-theme') || localStorage.getItem('theme') || 'light';
-updateTheme(savedTheme);
-
-if (toggleBtn) {
-    toggleBtn.addEventListener('click', () => {
-        const activeTheme = rootHtml.getAttribute('data-bs-theme');
-        const newTheme = activeTheme === 'light' ? 'dark' : 'light';
-        updateTheme(newTheme);
-    });
 }
 
 document.addEventListener('DOMContentLoaded', function () {
-    const savedSidebar = localStorage.getItem('sidebarCollapsed');
-    if (savedSidebar === 'true') {
-        body.classList.add('sidebar-collapsed');
+    const rootHtml = document.documentElement;
+    const body = document.body;
+
+    const themeToggleBtn = document.getElementById('themeToggleBtn');
+    const themeToggleIcon = document.getElementById('themeToggleIcon');
+
+    const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+    const sidebarOverlay = document.getElementById('sidebarOverlay');
+
+    const dropdownButtons = document.querySelectorAll('.sidebar-dropdown-btn');
+
+    document.querySelectorAll('.custom-alert-close').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            closeFlashAlert(btn);
+        });
+    });
+
+    function updateTheme(theme) {
+        rootHtml.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+
+        if (themeToggleIcon) {
+            if (theme === 'dark') {
+                themeToggleIcon.className = 'bi bi-sun-fill fs-5';
+            } else {
+                themeToggleIcon.className = 'bi bi-moon-fill fs-5';
+            }
+        }
     }
-    if (sidebarToggleBtn) {
-        sidebarToggleBtn.addEventListener('click', function () {
-            body.classList.toggle('sidebar-collapsed');
-            const isCollapsed = body.classList.contains('sidebar-collapsed');
-            localStorage.setItem('sidebarCollapsed', isCollapsed ? 'true' : 'false');
+
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    updateTheme(savedTheme);
+
+    if (themeToggleBtn) {
+        themeToggleBtn.addEventListener('click', function () {
+            const currentTheme = rootHtml.getAttribute('data-bs-theme') || 'light';
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            updateTheme(newTheme);
         });
     }
+
+    dropdownButtons.forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            const dropdown = btn.closest('.sidebar-dropdown');
+            if (dropdown) {
+                dropdown.classList.toggle('open');
+            }
+        });
+    });
+
+    function isMobile() {
+        return window.innerWidth <= 768;
+    }
+
+    function openSidebar() {
+        body.classList.remove('sidebar-collapsed');
+        localStorage.setItem('sidebarCollapsed', 'false');
+    }
+
+    function closeSidebar() {
+        body.classList.add('sidebar-collapsed');
+        localStorage.setItem('sidebarCollapsed', 'true');
+    }
+
+    function toggleSidebar() {
+        if (body.classList.contains('sidebar-collapsed')) {
+            openSidebar();
+        } else {
+            closeSidebar();
+        }
+    }
+
+    const savedSidebar = localStorage.getItem('sidebarCollapsed');
+
+    if (isMobile()) {
+        closeSidebar();
+    } else {
+        if (savedSidebar === 'true') {
+            closeSidebar();
+        } else {
+            openSidebar();
+        }
+    }
+
+    if (sidebarToggleBtn) {
+        sidebarToggleBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            toggleSidebar();
+        });
+    }
+
+    if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', function () {
+            closeSidebar();
+        });
+    }
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            closeSidebar();
+        }
+    });
+
+    window.addEventListener('resize', function () {
+        if (isMobile()) {
+            closeSidebar();
+        }
+    });
 });
 </script>
 
 {% block scripts %}{% endblock %}
+
 </body>
 </html>
