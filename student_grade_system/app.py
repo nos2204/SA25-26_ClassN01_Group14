@@ -11,6 +11,7 @@ import jwt
 from datetime import datetime, timedelta, timezone
 from flask import (Flask, render_template, request, redirect,
                    url_for, session, flash, send_file, jsonify, abort, g)
+from werkzeug.middleware.proxy_fix import ProxyFix
 from dotenv import load_dotenv
 from sqlalchemy import inspect as sa_inspect
 
@@ -34,6 +35,7 @@ app = Flask(
 )
 
 app.secret_key = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL', 'sqlite:///' + os.path.join(base_dir, 'instance', 'student.db'))
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -958,7 +960,7 @@ def section_grades(section_id):
     if request.method == 'POST':
         if section.grades_locked and session.get('role') != 'admin':
             flash('Điểm lớp này đã bị khóa. Vui lòng liên hệ admin.', 'danger')
-            return redirect(request.url)
+            return redirect(url_for('section_grades', section_id=section_id))
         for e in enrollments:
             pg = request.form.get(f'progress_{e.student_id}', type=float)
             eg = request.form.get(f'exam_{e.student_id}', type=float)
@@ -966,10 +968,10 @@ def section_grades(section_id):
                 continue
             if not (0 <= pg <= 10 and 0 <= eg <= 10):
                 flash('Điểm phải nằm trong khoảng 0 đến 10!', 'danger')
-                return redirect(request.url)
+                return redirect(url_for('section_grades', section_id=section_id))
             StudentService.upsert_grade(e.student_id, section.subject_id, section.semester_id, pg, eg, actor=session.get('username', 'teacher'))
         flash('Đã lưu điểm lớp học phần!', 'success')
-        return redirect(request.url)
+        return redirect(url_for('section_grades', section_id=section_id))
     grade_map = {}
     for e in enrollments:
         grade_map[e.student_id] = GradeModel.query.filter_by(student_id=e.student_id, subject_id=section.subject_id, semester_id=section.semester_id).first()

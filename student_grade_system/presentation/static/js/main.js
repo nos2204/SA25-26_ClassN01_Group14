@@ -25,7 +25,8 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     // 3. Kiểm tra hợp lệ dữ liệu nhập Form Sinh Viên (Validation)
-    const studentForm = document.querySelector('form[action*="student"]');
+    // Đã sửa đổi: Sử dụng ID để chỉ định chính xác form sinh viên, tránh bắt nhầm form nhập điểm
+    const studentForm = document.getElementById('studentManageForm');
     if (studentForm) {
         studentForm.addEventListener('submit', function (e) {
             const codeInput  = studentForm.querySelector('input[name="student_code"]');
@@ -125,7 +126,9 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // 6. Khởi tạo chức năng Tooltip chỉ dẫn của Bootstrap
     document.querySelectorAll('[title]').forEach(function (el) {
-        new bootstrap.Tooltip(el, { trigger: 'hover' });
+        if (typeof bootstrap !== 'undefined' && bootstrap.Tooltip) {
+            new bootstrap.Tooltip(el, { trigger: 'hover' });
+        }
     });
 
     // 7. Cảnh báo mất dữ liệu khi rời trang nhập điểm mà quên bấm lưu
