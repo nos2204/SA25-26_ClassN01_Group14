@@ -6,11 +6,42 @@ from datetime import datetime
 from flask import session
 from persistence.models import db, StudentModel, GradeModel, SubjectModel, SemesterModel, AuditLog, DepartmentModel, UserModel, ClassModel, TeacherModel, CourseSectionModel, EnrollmentModel
 
+# Ngưỡng cảnh báo điểm tích lũy (thang 4)
+GPA_WARNING_THRESHOLD = 1.0   # Dưới 1.0 / 4 → cảnh báo nghiêm trọng
+GPA_LOW_THRESHOLD     = 2.0   # Dưới 2.0 / 4 → cảnh báo học lực yếu
+
 
 class StudentService:
 
     @staticmethod
+    def score_to_gpa4(score):
+        """Chuyển đổi điểm thang 10 sang thang 4 (GPA)"""
+        if score >= 8.5: return 4.0
+        if score >= 7.0: return 3.0
+        if score >= 5.5: return 2.0
+        if score >= 4.0: return 1.0
+        return 0.0
+
+    @staticmethod
     def calculate_student_gpa(student_id, semester_id=None):
+        """Tính GPA thang 4 dựa trên điểm tích lũy có trọng số tín chỉ"""
+        query = GradeModel.query.filter_by(student_id=student_id)
+        if semester_id:
+            query = query.filter_by(semester_id=semester_id)
+        grades = query.all()
+        if not grades:
+            return 0.0
+        total_points  = 0.0
+        total_credits = 0
+        for g in grades:
+            gpa4 = StudentService.score_to_gpa4(g.final_grade)
+            total_points  += gpa4 * g.subject.credits
+            total_credits += g.subject.credits
+        return round(total_points / total_credits, 2) if total_credits > 0 else 0.0
+
+    @staticmethod
+    def calculate_student_avg10(student_id, semester_id=None):
+        """Tính điểm trung bình thang 10 có trọng số tín chỉ"""
         query = GradeModel.query.filter_by(student_id=student_id)
         if semester_id:
             query = query.filter_by(semester_id=semester_id)
@@ -26,10 +57,70 @@ class StudentService:
 
     @staticmethod
     def classify_academic(gpa):
-        if gpa >= 8.5: return 'Giỏi'
-        if gpa >= 7.0: return 'Khá'
-        if gpa >= 5.5: return 'Trung bình'
-        return 'Yếu'
+        """Phân loại học lực theo thang GPA 4"""
+        if gpa >= 3.6: return 'Xuất sắc'
+        if gpa >= 3.2: return 'Giỏi'
+        if gpa >= 2.5: return 'Khá'
+        if gpa >= 2.0: return 'Trung bình'
+        if gpa >= 1.0: return 'Yếu'
+        return 'Kém'
+
+    @staticmethod
+    def get_student_warnings(student_id, semester_id=None):
+        """
+        Kiểm tra và trả về danh sách cảnh báo cho sinh viên:
+        - Môn học chưa hoàn thành (chưa đạt / rớt)
+        - Điểm tích lũy (GPA) thấp
+        """
+        warnings = []
+
+        # 1. Kiểm tra các môn chưa hoàn thành (điểm < 4.0 = Rớt)
+        query = GradeModel.query.filter_by(student_id=student_id)
+        if semester_id:
+            query = query.filter_by(semester_id=semester_id)
+        grades = query.all()
+
+        failed_subjects = [g for g in grades if not g.is_passed]
+        if failed_subjects:
+            mon_list = ', '.join(f"{g.subject.subject_name} ({g.final_grade:.1f})" for g in failed_subjects)
+            warnings.append({
+                'level': 'danger',
+                'icon': 'bi-x-circle-fill',
+                'message': f"Chưa hoàn thành {len(failed_subjects)} môn học: {mon_list}. Cần học lại hoặc thi lại."
+            })
+
+        # 2. Kiểm tra môn đăng ký nhưng chưa có điểm
+        enrollments = EnrollmentModel.query.filter_by(student_id=student_id, status='registered').all()
+        graded_subject_ids = {g.subject_id for g in grades}
+        missing_grades = []
+        for enr in enrollments:
+            subj = enr.section.subject
+            if subj.id not in graded_subject_ids:
+                missing_grades.append(subj.subject_name)
+        if missing_grades:
+            mon_list = ', '.join(missing_grades)
+            warnings.append({
+                'level': 'warning',
+                'icon': 'bi-hourglass-split',
+                'message': f"Chưa có điểm cho {len(missing_grades)} môn đã đăng ký: {mon_list}."
+            })
+
+        # 3. Kiểm tra GPA tích lũy
+        gpa = StudentService.calculate_student_gpa(student_id)
+        if gpa < GPA_WARNING_THRESHOLD and gpa > 0:
+            warnings.append({
+                'level': 'danger',
+                'icon': 'bi-exclamation-octagon-fill',
+                'message': f"Điểm tích lũy rất thấp (GPA = {gpa:.2f}/4.0). Có nguy cơ bị buộc thôi học!"
+            })
+        elif gpa < GPA_LOW_THRESHOLD and gpa > 0:
+            warnings.append({
+                'level': 'warning',
+                'icon': 'bi-exclamation-triangle-fill',
+                'message': f"Điểm tích lũy chưa đủ (GPA = {gpa:.2f}/4.0). Cần cải thiện kết quả học tập."
+            })
+
+        return warnings
 
     @staticmethod
     def update_student_stats(student_id):
@@ -70,10 +161,11 @@ class StudentService:
     @staticmethod
     def get_dashboard_stats():
         total = StudentModel.query.count()
-        gioi  = StudentModel.query.filter_by(academic_rank='Giỏi').count()
+        # Dùng xếp loại theo GPA thang 4
+        gioi  = StudentModel.query.filter(StudentModel.academic_rank.in_(['Giỏi', 'Xuất sắc'])).count()
         kha   = StudentModel.query.filter_by(academic_rank='Khá').count()
         tb    = StudentModel.query.filter_by(academic_rank='Trung bình').count()
-        yeu   = StudentModel.query.filter_by(academic_rank='Yếu').count()
+        yeu   = StudentModel.query.filter(StudentModel.academic_rank.in_(['Yếu', 'Kém'])).count()
         nam   = StudentModel.query.filter_by(gender='Nam').count()
         nu    = StudentModel.query.filter_by(gender='Nữ').count()
         total_subjects = SubjectModel.query.count()
@@ -87,6 +179,12 @@ class StudentService:
         no_account = StudentModel.query.filter(~StudentModel.id.in_(db.session.query(UserModel.student_id).filter(UserModel.student_id.isnot(None)))).count()
         no_grade = StudentModel.query.filter(~StudentModel.id.in_(db.session.query(GradeModel.student_id))).count()
 
+        # Cảnh báo học sinh có GPA thấp
+        warning_students = StudentModel.query.filter(
+            StudentModel.gpa > 0,
+            StudentModel.gpa < GPA_LOW_THRESHOLD
+        ).count()
+
         top5  = (StudentModel.query.filter(StudentModel.gpa > 0).order_by(StudentModel.gpa.desc()).limit(5).all())
         current_sem = SemesterModel.query.filter_by(is_current=True).first()
 
@@ -96,7 +194,8 @@ class StudentService:
                     total_semesters=total_semesters, total_users=total_users,
                     total_classes=total_classes, total_teachers=total_teachers,
                     total_sections=total_sections, total_enrollments=total_enrollments,
-                    no_account=no_account, no_grade=no_grade)
+                    no_account=no_account, no_grade=no_grade,
+                    warning_students=warning_students)
 
     @staticmethod
     def upsert_grade(student_id, subject_id, semester_id,
@@ -229,13 +328,13 @@ class StudentService:
             gpa = (StudentService.calculate_student_gpa(s.id, semester_id)
                    if semester_id else s.gpa)
             rows.append({
-                'MSSV'       : s.student_code,
-                'Họ và Tên' : s.full_name,
-                'Giới tính' : s.gender,
-                'Lớp'       : s.display_class or '',
-                'Email'      : s.email or '',
-                'Điểm GPA'  : gpa,
-                'Xếp loại'  : StudentService.classify_academic(gpa),
+                'MSSV'        : s.student_code,
+                'Họ và Tên'  : s.full_name,
+                'Giới tính'  : s.gender,
+                'Lớp'        : s.display_class or '',
+                'Email'       : s.email or '',
+                'Điểm TL (GPA/4)': gpa,
+                'Xếp loại'   : StudentService.classify_academic(gpa),
             })
         df = pd.DataFrame(rows)
         with pd.ExcelWriter(file_path, engine='openpyxl') as writer:
@@ -273,6 +372,7 @@ class StudentService:
                 <td style="text-align:center">{g.exam_grade}</td>
                 <td style="text-align:center;font-weight:bold">{g.final_grade}</td>
                 <td style="text-align:center">{g.letter_grade}</td>
+                <td style="text-align:center">{g.grade_point_4}</td>
                 <td style="text-align:center">{"Đạt" if g.is_passed else "Rớt"}</td>
             </tr>"""
 
@@ -308,12 +408,12 @@ class StudentService:
             <thead>
               <tr>
                 <th>#</th><th>Mã môn</th><th>Tên môn học</th><th>TC</th>
-                <th>Điểm QT</th><th>Điểm thi</th><th>Tổng kết</th><th>Chữ</th><th>KQ</th>
+                <th>Điểm QT</th><th>Điểm thi</th><th>Tổng kết</th><th>Chữ</th><th>Điểm (hệ 4)</th><th>KQ</th>
               </tr>
             </thead>
             <tbody>{rows_html}</tbody>
           </table>
-          <div class="gpa-row">GPA {sem_name}: {gpa} — {StudentService.classify_academic(gpa)}</div>
+          <div class="gpa-row">Điểm tích lũy (GPA) {sem_name}: {gpa}/4.0 — {StudentService.classify_academic(gpa)}</div>
           <div class="footer">Xuất lúc {datetime.now().strftime('%d/%m/%Y %H:%M')}</div>
         </body>
         </html>

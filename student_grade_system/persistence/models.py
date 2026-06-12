@@ -198,7 +198,17 @@ class GradeModel(db.Model):
 
     @property
     def grade_point_4(self):
+        """Quy đổi sang thang điểm 4 (GPA)"""
         return {'A': 4.0, 'B': 3.0, 'C': 2.0, 'D': 1.0, 'F': 0.0}.get(self.letter_grade, 0.0)
+
+    @staticmethod
+    def diem10_to_gpa4(score):
+        """Chuyển đổi điểm thang 10 sang thang 4"""
+        if score >= 8.5: return 4.0
+        if score >= 7.0: return 3.0
+        if score >= 5.5: return 2.0
+        if score >= 4.0: return 1.0
+        return 0.0
 
     @property
     def is_passed(self):

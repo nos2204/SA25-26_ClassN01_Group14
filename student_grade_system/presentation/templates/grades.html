@@ -1,5 +1,5 @@
 {% extends 'base.html' %}
-{% block title %}Điểm — {{ student.full_name }}{% endblock %}
+{% block title %}Bảng Điểm — {{ student.full_name }}{% endblock %}
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -13,9 +13,14 @@
         </small>
     </div>
     <div class="text-end">
-        <div class="fs-4 fw-bold text-primary">GPA toàn khoá: {{ '%.2f'|format(student.gpa) }}</div>
+        <div class="fw-bold text-primary" style="font-size:1.1rem;">
+            Điểm TK toàn khoá:
+            <span class="text-success">{{ '%.2f'|format(total_avg10) }}/10</span>
+            <span class="text-muted mx-1">|</span>
+            GPA: <span class="text-primary">{{ '%.2f'|format(student.gpa) }}/4.0</span>
+        </div>
         <span class="badge
-            {% if student.academic_rank == 'Giỏi' %}bg-success
+            {% if student.academic_rank in ['Giỏi', 'Xuất sắc'] %}bg-success
             {% elif student.academic_rank == 'Khá' %}bg-primary
             {% elif student.academic_rank == 'Trung bình' %}bg-warning text-dark
             {% else %}bg-danger{% endif %}">
@@ -23,6 +28,18 @@
         </span>
     </div>
 </div>
+
+{# ===== CẢNH BÁO SINH VIÊN ===== #}
+{% if warnings %}
+<div class="mb-3">
+    {% for w in warnings %}
+    <div class="alert alert-{{ w.level }} d-flex align-items-center py-2 mb-2" role="alert">
+        <i class="bi {{ w.icon }} me-2 fs-5 flex-shrink-0"></i>
+        <div>{{ w.message }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
 
 <div class="card shadow-sm mb-3">
     <div class="card-body py-2">
@@ -38,8 +55,11 @@
                 </select>
             </div>
             <div class="col-auto">
-                <span class="badge bg-info text-dark ms-2 py-2">
-                    GPA kỳ này: {{ '%.2f'|format(sem_gpa) }}
+                <span class="badge bg-success text-white ms-1 py-2">
+                    Điểm kỳ: {{ '%.2f'|format(sem_avg10) }}/10
+                </span>
+                <span class="badge bg-info text-dark ms-1 py-2">
+                    GPA kỳ: {{ '%.2f'|format(sem_gpa) }}/4.0
                 </span>
             </div>
             <div class="col-auto ms-auto">
@@ -65,9 +85,9 @@
                             <th class="text-center">Số TC</th>
                             <th class="text-center">Điểm QT (40%)</th>
                             <th class="text-center">Điểm thi (60%)</th>
-                            <th class="text-center">Điểm tổng kết</th>
+                            <th class="text-center">Điểm TK</th>
                             <th class="text-center">Điểm chữ</th>
-                            <th class="text-center">Hệ 4</th>
+                            <th class="text-center">GPA (hệ 4)</th>
                             <th class="text-center">Kết quả</th>
                         </tr>
                     </thead>
@@ -77,10 +97,15 @@
                         {% set pg = g.progress_grade if g else 0 %}
                         {% set eg = g.exam_grade if g else 0 %}
                         {% set final = (pg * 0.4 + eg * 0.6)|round(2) %}
-                        <tr>
+                        <tr {% if g and not g.is_passed %}class="table-danger"{% endif %}>
                             <td>
                                 <div class="fw-semibold">{{ subject.subject_name }}</div>
                                 <small class="text-muted">{{ subject.subject_code }}</small>
+                                {% if g and not g.is_passed %}
+                                <span class="badge bg-danger ms-1">Chưa hoàn thành</span>
+                                {% elif not g %}
+                                <span class="badge bg-secondary ms-1">Chưa có điểm</span>
+                                {% endif %}
                             </td>
                             <td class="text-center">{{ subject.credits }}</td>
                             <td class="text-center">
@@ -107,8 +132,13 @@
                                 {% if g %}{{ final }}{% else %}—{% endif %}
                             </td>
                             <td class="text-center">{% if g %}{{ g.letter_grade }}{% else %}—{% endif %}</td>
-                            <td class="text-center">{% if g %}{{ g.grade_point_4 }}{% else %}—{% endif %}</td>
-                            <td class="text-center">{% if g %}{% if g.is_passed %}<span class="badge bg-success">Đạt</span>{% else %}<span class="badge bg-danger">Rớt</span>{% endif %}{% else %}—{% endif %}</td>
+                            <td class="text-center fw-bold">{% if g %}{{ g.grade_point_4 }}{% else %}—{% endif %}</td>
+                            <td class="text-center">
+                                {% if g %}
+                                    {% if g.is_passed %}<span class="badge bg-success">Đạt</span>
+                                    {% else %}<span class="badge bg-danger">Rớt</span>{% endif %}
+                                {% else %}—{% endif %}
+                            </td>
                         </tr>
                         {% endfor %}
                     </tbody>
@@ -117,7 +147,7 @@
             {% if session.get('role') == 'admin' %}
             <div class="p-3 border-top d-flex gap-2">
                 <button type="submit" class="btn btn-primary">
-                    <i class="bi bi-calculator me-1"></i>Lưu điểm & tính lại GPA
+                    <i class="bi bi-calculator me-1"></i>Lưu điểm & tính lại
                 </button>
                 <a href="{{ url_for('students_manager') }}" class="btn btn-outline-secondary">
                     <i class="bi bi-arrow-left me-1"></i>Quay lại

@@ -228,7 +228,9 @@ def my_profile():
         return redirect(url_for('my_profile'))
 
     semesters = SemesterModel.query.order_by(SemesterModel.academic_year.desc()).all()
-    return render_template('profile.html', student=student, semesters=semesters)
+    warnings    = StudentService.get_student_warnings(student.id)
+    total_avg10 = StudentService.calculate_student_avg10(student.id)
+    return render_template('profile.html', student=student, semesters=semesters, warnings=warnings, total_avg10=total_avg10)
 
 @app.route('/students')
 @token_required
@@ -421,16 +423,22 @@ def manage_grades(student_id):
                         )
                 except ValueError:
                     pass
-        flash('Đã cập nhật điểm và tính lại GPA!', 'success')
+        flash('Đã cập nhật điểm và tính lại Điểm tích lũy!', 'success')
         return redirect(url_for('manage_grades', student_id=student_id,
                                 semester_id=sel_sem_id))
 
-    sem_gpa = StudentService.calculate_student_gpa(student_id, sel_sem_id) if sel_sem_id else 0
-    student = StudentModel.query.get(student_id)
+    sem_gpa     = StudentService.calculate_student_gpa(student_id, sel_sem_id) if sel_sem_id else 0
+    sem_avg10   = StudentService.calculate_student_avg10(student_id, sel_sem_id) if sel_sem_id else 0
+    total_avg10 = StudentService.calculate_student_avg10(student_id)
+    student     = StudentModel.query.get(student_id)
+    warnings    = StudentService.get_student_warnings(student_id, sel_sem_id)
     return render_template('grades.html',
                            student=student, subjects=subjects,
                            grades=grades, semesters=semesters,
-                           sel_sem_id=sel_sem_id, sem_gpa=sem_gpa)
+                           sel_sem_id=sel_sem_id,
+                           sem_gpa=sem_gpa, sem_avg10=sem_avg10,
+                           total_avg10=total_avg10,
+                           warnings=warnings)
 
 
 @app.route('/grades/import', methods=['GET', 'POST'])
