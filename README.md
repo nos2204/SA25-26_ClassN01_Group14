@@ -36,13 +36,13 @@ Tính điểm tổng kết live ngay khi nhập
 Import điểm hàng loạt từ CSV
 Lịch sử thay đổi điểm ghi vào AuditLog
 
-Báo cáo & Xuất dữ liệu
+- Báo cáo & Xuất dữ liệu
 
 Xuất Excel danh sách sinh viên (auto-width cột, lọc theo học kỳ)
 Xuất PDF bảng điểm cá nhân (WeasyPrint, có thể in)
 Dashboard: biểu đồ tròn học lực, giới tính, Top 5 GPA
 
-Quản trị hệ thống (Admin)
+- Quản trị hệ thống (Admin)
 
 Quản lý Học kỳ: thêm, sửa, xoá, đặt hiện tại, mở/khoá đăng ký TC
 Quản lý Khoa/Ngành: thêm, sửa, xoá
@@ -50,7 +50,7 @@ Quản lý Môn học: CRUD + sĩ số tối đa
 Quản lý Tài khoản: tạo/xoá, reset mật khẩu, hiển thị trạng thái khoá
 Nhật ký hệ thống (AuditLog): toàn bộ thao tác có audit trail
 
- UI/UX
+- UI/UX
 
 Dark / Light mode (lưu vào localStorage)
 Responsive Bootstrap 5
