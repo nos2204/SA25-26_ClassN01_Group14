@@ -2,9 +2,6 @@
 ##
 - **Thành Viên:** Nguyễn Hoàng Sơn  
 - **Mã sinh viên:** 23010100
-##
-- **Thành Viên:** Nguyễn Quốc Thái
-- **Mã sinh viên:** 23010225 
 
 ## Giới thiệu
 
