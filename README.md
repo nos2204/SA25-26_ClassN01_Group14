@@ -1,4 +1,4 @@
-# SA25-26_ClassN01_Group14 : Hệ thống Quản lí sinh viên
+#  Hệ thống Quản lí sinh viên
 ##
 - **Thành Viên:** Nguyễn Hoàng Sơn  
 - **Mã sinh viên:** 23010100
