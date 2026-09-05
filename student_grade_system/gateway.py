@@ -41,7 +41,8 @@ def token_required(f):
             flash('Chưa đăng nhập hoặc phiên làm việc đã hết hạn!', 'danger')
             return redirect(url_for('login'))
         try:
-            secret    = os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
+            from flask import current_app
+            secret    = current_app.secret_key or os.getenv('FLASK_SECRET_KEY', 'quanlidiemsinhvien_secret_key_2026')
             data      = jwt.decode(token, secret, algorithms=['HS256'])
             request.user_data = data
         except jwt.ExpiredSignatureError:
