@@ -137,6 +137,8 @@ def _init_database(app):
             _add_column_if_missing('students', 'gpa', 'gpa FLOAT DEFAULT 0')
             _add_column_if_missing('students', 'academic_rank', 'academic_rank VARCHAR(20) DEFAULT \'Yếu\'')
             _add_column_if_missing('subjects', 'department_id', 'department_id INTEGER NULL')
+            _add_column_if_missing('subjects', 'progress_weight', 'progress_weight FLOAT DEFAULT 0.4')
+            _add_column_if_missing('subjects', 'exam_weight', 'exam_weight FLOAT DEFAULT 0.6')
             _add_column_if_missing('grades', 'semester_id', 'semester_id INTEGER NULL')
 
             if not UserModel.query.filter_by(username='admin').first():

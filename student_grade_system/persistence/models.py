@@ -112,6 +112,13 @@ class TeacherModel(db.Model):
     sections = db.relationship('CourseSectionModel', backref='teacher', lazy=True)
 
 
+subject_prerequisites = db.Table(
+    'subject_prerequisites',
+    db.Column('subject_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True),
+    db.Column('prerequisite_id', db.Integer, db.ForeignKey('subjects.id'), primary_key=True)
+)
+
+
 class SubjectModel(db.Model):
     __tablename__ = 'subjects'
     id              = db.Column(db.Integer, primary_key=True)
@@ -119,9 +126,19 @@ class SubjectModel(db.Model):
     subject_name    = db.Column(db.String(100), nullable=False)
     credits         = db.Column(db.Integer, nullable=False)
     department_id   = db.Column(db.Integer, db.ForeignKey('departments.id'), nullable=True, index=True)
+    progress_weight = db.Column(db.Float, default=0.4)
+    exam_weight     = db.Column(db.Float, default=0.6)
 
     grades = db.relationship('GradeModel', backref='subject', cascade='all, delete-orphan', lazy=True)
     sections = db.relationship('CourseSectionModel', backref='subject', lazy=True)
+
+    prerequisites = db.relationship(
+        'SubjectModel',
+        secondary=subject_prerequisites,
+        primaryjoin=(id == subject_prerequisites.c.subject_id),
+        secondaryjoin=(id == subject_prerequisites.c.prerequisite_id),
+        backref='prerequisite_for'
+    )
 
 
 class SemesterModel(db.Model):
@@ -193,7 +210,9 @@ class GradeModel(db.Model):
 
     @property
     def final_grade(self):
-        return round((self.progress_grade or 0) * 0.4 + (self.exam_grade or 0) * 0.6, 2)
+        pw = self.subject.progress_weight if (self.subject and self.subject.progress_weight is not None) else 0.4
+        ew = self.subject.exam_weight if (self.subject and self.subject.exam_weight is not None) else 0.6
+        return round((self.progress_grade or 0) * pw + (self.exam_grade or 0) * ew, 2)
 
     @property
     def letter_grade(self):
@@ -223,6 +242,23 @@ class GradeModel(db.Model):
         return self.final_grade >= 4.0
 
 
+class GradeAppealModel(db.Model):
+    __tablename__ = 'grade_appeals'
+    id            = db.Column(db.Integer, primary_key=True)
+    student_id    = db.Column(db.Integer, db.ForeignKey('students.id'), nullable=False, index=True)
+    subject_id    = db.Column(db.Integer, db.ForeignKey('subjects.id'), nullable=False, index=True)
+    semester_id   = db.Column(db.Integer, db.ForeignKey('semesters.id'), nullable=False, index=True)
+    reason        = db.Column(db.Text, nullable=False)
+    status        = db.Column(db.String(20), default='pending')  # pending / approved / rejected
+    response      = db.Column(db.Text, nullable=True)
+    created_at    = db.Column(db.DateTime, default=utc_now)
+    updated_at    = db.Column(db.DateTime, default=utc_now, onupdate=utc_now)
+
+    student  = db.relationship('StudentModel', backref='grade_appeals')
+    subject  = db.relationship('SubjectModel', backref='grade_appeals')
+    semester = db.relationship('SemesterModel', backref='grade_appeals')
+
+
 class AuditLog(db.Model):
     __tablename__ = 'audit_logs'
     id          = db.Column(db.Integer, primary_key=True)
@@ -231,4 +267,5 @@ class AuditLog(db.Model):
     target      = db.Column(db.String(200), nullable=True)
     detail      = db.Column(db.Text, nullable=True)
     created_at  = db.Column(db.DateTime, default=utc_now)
+
 

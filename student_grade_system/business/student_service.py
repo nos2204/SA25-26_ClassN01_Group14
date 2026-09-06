@@ -4,7 +4,7 @@ import csv
 import pandas as pd
 from datetime import datetime
 from flask import session
-from persistence.models import db, StudentModel, GradeModel, SubjectModel, SemesterModel, AuditLog, DepartmentModel, UserModel, ClassModel, TeacherModel, CourseSectionModel, EnrollmentModel
+from persistence.models import db, StudentModel, GradeModel, SubjectModel, SemesterModel, AuditLog, DepartmentModel, UserModel, ClassModel, TeacherModel, CourseSectionModel, EnrollmentModel, GradeAppealModel
 
 # Ngưỡng cảnh báo điểm tích lũy (thang 4)
 GPA_WARNING_THRESHOLD = 1.0   # Dưới 1.0 / 4 → cảnh báo nghiêm trọng
@@ -12,6 +12,88 @@ GPA_LOW_THRESHOLD     = 2.0   # Dưới 2.0 / 4 → cảnh báo học lực yế
 
 
 class StudentService:
+
+    @staticmethod
+    def check_schedule_conflict(student_id, new_section):
+        """
+        Kiểm tra xung đột lịch học giữa lớp hp mới đăng ký và các lớp hp đã đăng ký của sinh viên.
+        Trả về (is_conflict, conflict_message)
+        """
+        from blueprints.timetable import parse_schedule_text, time_to_minutes
+        new_parsed = parse_schedule_text(new_section.schedule or '')
+        if not new_parsed or not new_parsed.get('weekday'):
+            return False, None
+
+        new_day = new_parsed['weekday']
+        new_start = time_to_minutes(new_parsed['start_time'])
+        new_end = time_to_minutes(new_parsed['end_time'])
+
+        enrollments = EnrollmentModel.query.filter_by(
+            student_id=student_id, status='registered'
+        ).join(CourseSectionModel).filter(
+            CourseSectionModel.semester_id == new_section.semester_id
+        ).all()
+
+        for e in enrollments:
+            sec = e.section
+            if not sec or sec.id == new_section.id:
+                continue
+            parsed = parse_schedule_text(sec.schedule or '')
+            if not parsed or not parsed.get('weekday'):
+                continue
+
+            if parsed['weekday'] == new_day:
+                start_m = time_to_minutes(parsed['start_time'])
+                end_m = time_to_minutes(parsed['end_time'])
+
+                if (new_start < end_m) and (new_end > start_m):
+                    subj_name = sec.subject.subject_name if sec.subject else sec.section_code
+                    msg = f"Trùng lịch học với lớp {sec.section_code} ({subj_name}) vào {sec.schedule}"
+                    return True, msg
+
+        return False, None
+
+    @staticmethod
+    def check_prerequisites_met(student_id, subject):
+        """
+        Kiểm tra xem sinh viên đã đạt tất cả các môn tiên quyết của `subject` chưa.
+        Trả về (all_passed, missing_prereqs)
+        """
+        if not subject or not subject.prerequisites:
+            return True, []
+
+        missing = []
+        for prereq in subject.prerequisites:
+            grades = GradeModel.query.filter_by(
+                student_id=student_id,
+                subject_id=prereq.id
+            ).all()
+            passed = any(g.is_passed for g in grades)
+            if not passed:
+                missing.append(prereq.subject_name)
+
+        if missing:
+            return False, missing
+        return True, []
+
+    @staticmethod
+    def create_grade_appeal(student_id, subject_id, semester_id, reason):
+        existing = GradeAppealModel.query.filter_by(
+            student_id=student_id, subject_id=subject_id, semester_id=semester_id, status='pending'
+        ).first()
+        if existing:
+            return False, 'Bạn đã có một yêu cầu phúc khảo đang chờ xử lý cho môn học này!'
+
+        appeal = GradeAppealModel(
+            student_id=student_id,
+            subject_id=subject_id,
+            semester_id=semester_id,
+            reason=reason.strip(),
+            status='pending'
+        )
+        db.session.add(appeal)
+        db.session.commit()
+        return True, 'Đã gửi yêu cầu phúc khảo thành công!'
 
     @staticmethod
     def score_to_gpa4(score):

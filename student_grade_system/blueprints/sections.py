@@ -100,6 +100,21 @@ def register_section(section_id):
     if section.is_full:
         flash('Lớp học phần đã đủ sĩ số!', 'danger')
         return redirect(url_for('enrollments_page'))
+
+    # 1. Kiểm tra môn học tiên quyết
+    if section.subject:
+        prereqs_met, missing_prereqs = StudentService.check_prerequisites_met(user.student_id, section.subject)
+        if not prereqs_met:
+            missing_str = ', '.join(missing_prereqs)
+            flash(f'Không thể đăng ký: Chưa hoàn thành môn tiên quyết ({missing_str})!', 'danger')
+            return redirect(url_for('enrollments_page'))
+
+    # 2. Kiểm tra trùng lịch học
+    is_conflict, conflict_msg = StudentService.check_schedule_conflict(user.student_id, section)
+    if is_conflict:
+        flash(f'Không thể đăng ký: {conflict_msg}!', 'danger')
+        return redirect(url_for('enrollments_page'))
+
     existed = EnrollmentModel.query.filter_by(student_id=user.student_id, section_id=section_id).first()
     if existed:
         if existed.status != 'registered':

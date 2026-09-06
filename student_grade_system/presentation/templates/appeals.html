@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% block title %}Quản lý Phúc khảo — QLSV{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h3 class="fw-bold mb-0">Quản lý Yêu cầu Phúc khảo</h3>
+        <p class="text-muted small mb-0">Danh sách đơn xin phúc khảo điểm của sinh viên.</p>
+    </div>
+</div>
+
+<div class="card shadow-sm border-0">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-striped mb-0 align-middle">
+                <thead class="table-dark">
+                    <tr>
+                        <th>#</th>
+                        <th>Sinh viên</th>
+                        <th>Môn học</th>
+                        <th>Học kỳ</th>
+                        <th>Lý do phúc khảo</th>
+                        <th>Ngày gửi</th>
+                        <th>Trạng thái</th>
+                        <th class="text-center">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for a in appeals %}
+                    <tr>
+                        <td>{{ a.id }}</td>
+                        <td>
+                            <strong>{{ a.student.full_name if a.student else '—' }}</strong><br>
+                            <small class="text-muted">{{ a.student.student_code if a.student else '' }}</small>
+                        </td>
+                        <td>{{ a.subject.subject_name if a.subject else '—' }}</td>
+                        <td>{{ a.semester.display_name if a.semester else '—' }}</td>
+                        <td style="max-width: 250px;">{{ a.reason }}</td>
+                        <td><small>{{ a.created_at.strftime('%H:%M %d/%m/%Y') if a.created_at else '—' }}</small></td>
+                        <td>
+                            {% if a.status == 'pending' %}
+                            <span class="badge bg-warning text-dark">Chờ xử lý</span>
+                            {% elif a.status == 'approved' %}
+                            <span class="badge bg-success">Đã chấp nhận</span>
+                            {% else %}
+                            <span class="badge bg-danger">Đã từ chối</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if a.status == 'pending' %}
+                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#processModal{{ a.id }}">
+                                Xử lý
+                            </button>
+                            {% else %}
+                            <small class="text-muted">{{ a.response or 'Đã xong' }}</small>
+                            {% endif %}
+
+                            <!-- Modal Xử lý -->
+                            <div class="modal fade" id="processModal{{ a.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <form method="POST" action="{{ url_for('process_grade_appeal', appeal_id=a.id) }}">
+                                            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                                            <div class="modal-header">
+                                                <h5 class="modal-title">Xử lý Phúc khảo #{{ a.id }}</h5>
+                                                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                            </div>
+                                            <div class="modal-body text-start">
+                                                <p><strong>Sinh viên:</strong> {{ a.student.full_name if a.student else '' }}</p>
+                                                <p><strong>Môn học:</strong> {{ a.subject.subject_name if a.subject else '' }}</p>
+                                                <p><strong>Lý do:</strong> {{ a.reason }}</p>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Kết quả xử lý</label>
+                                                    <select name="status" class="form-select">
+                                                        <option value="approved">Chấp nhận (Yêu cầu nhập lại điểm)</option>
+                                                        <option value="rejected">Từ chối</option>
+                                                    </select>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label fw-semibold">Ghi chú / Phản hồi</label>
+                                                    <textarea name="response" class="form-control" rows="3" placeholder="Nhập phản hồi cho sinh viên..."></textarea>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Hủy</button>
+                                                <button type="submit" class="btn btn-success">Lưu kết quả</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="8" class="text-center text-muted py-4">Chưa có đơn xin phúc khảo nào.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

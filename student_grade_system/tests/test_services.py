@@ -9,7 +9,8 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from app import create_app
-from persistence.models import db, StudentModel, SubjectModel, SemesterModel, GradeModel
+from persistence.models import (db, StudentModel, SubjectModel, SemesterModel,
+                                 GradeModel, CourseSectionModel, EnrollmentModel, GradeAppealModel)
 from business.student_service import StudentService
 
 
@@ -66,6 +67,82 @@ class TestStudentService(unittest.TestCase):
 
         gpa = StudentService.calculate_student_gpa(student.id)
         self.assertEqual(gpa, 3.43)
+
+    def test_dynamic_grade_weighting(self):
+        # Subject with 30% progress, 70% exam
+        subj = SubjectModel(subject_code='LAB101', subject_name='Thực hành', credits=2, progress_weight=0.3, exam_weight=0.7)
+        student = StudentModel(student_code='SV998', full_name='Trần Thị Test')
+        sem = SemesterModel.query.first()
+        db.session.add_all([subj, student])
+        db.session.flush()
+
+        # Progress = 10.0, Exam = 5.0 -> Final = 10*0.3 + 5*0.7 = 3.0 + 3.5 = 6.5
+        g = GradeModel(student_id=student.id, subject_id=subj.id, semester_id=sem.id, progress_grade=10.0, exam_grade=5.0)
+        db.session.add(g)
+        db.session.commit()
+
+        self.assertEqual(g.final_grade, 6.5)
+
+    def test_check_prerequisites_met(self):
+        sub_base = SubjectModel(subject_code='BAS101', subject_name='Nhập môn Tin học', credits=3)
+        sub_adv = SubjectModel(subject_code='ADV101', subject_name='Lập trình Nâng cao', credits=3)
+        sub_adv.prerequisites.append(sub_base)
+
+        student = StudentModel(student_code='SV997', full_name='Lê Văn Test')
+        sem = SemesterModel.query.first()
+        db.session.add_all([sub_base, sub_adv, student])
+        db.session.commit()
+
+        # Student hasn't passed sub_base -> should fail prerequisite check
+        passed, missing = StudentService.check_prerequisites_met(student.id, sub_adv)
+        self.assertFalse(passed)
+        self.assertIn('Nhập môn Tin học', missing)
+
+        # Student passes sub_base (grade = 7.0 >= 4.0)
+        g = GradeModel(student_id=student.id, subject_id=sub_base.id, semester_id=sem.id, progress_grade=7.0, exam_grade=7.0)
+        db.session.add(g)
+        db.session.commit()
+
+        passed, missing = StudentService.check_prerequisites_met(student.id, sub_adv)
+        self.assertTrue(passed)
+        self.assertEqual(len(missing), 0)
+
+    def test_check_schedule_conflict(self):
+        sem = SemesterModel.query.first()
+        subj1 = SubjectModel(subject_code='S1', subject_name='Môn 1', credits=3)
+        subj2 = SubjectModel(subject_code='S2', subject_name='Môn 2', credits=3)
+        db.session.add_all([subj1, subj2])
+        db.session.flush()
+
+        sec1 = CourseSectionModel(section_code='HP01', subject_id=subj1.id, semester_id=sem.id, schedule='Thứ 2 (07:00-09:00)')
+        sec2 = CourseSectionModel(section_code='HP02', subject_id=subj2.id, semester_id=sem.id, schedule='Thứ 2 (08:30-10:30)')
+        student = StudentModel(student_code='SV996', full_name='Phạm Văn Test')
+        db.session.add_all([sec1, sec2, student])
+        db.session.flush()
+
+        # Enroll student in sec1
+        enr = EnrollmentModel(student_id=student.id, section_id=sec1.id, status='registered')
+        db.session.add(enr)
+        db.session.commit()
+
+        # Check registering sec2 -> should detect schedule conflict with sec1 (07:00-09:00 vs 08:30-10:30)
+        is_conflict, msg = StudentService.check_schedule_conflict(student.id, sec2)
+        self.assertTrue(is_conflict)
+        self.assertIn('Trùng lịch học với lớp HP01', msg)
+
+    def test_create_grade_appeal(self):
+        sem = SemesterModel.query.first()
+        subj = SubjectModel(subject_code='S3', subject_name='Môn 3', credits=3)
+        student = StudentModel(student_code='SV995', full_name='Hoàng Văn Test')
+        db.session.add_all([subj, student])
+        db.session.commit()
+
+        ok, msg = StudentService.create_grade_appeal(student.id, subj.id, sem.id, 'Chấm sót câu 3 phần tự luận.')
+        self.assertTrue(ok)
+
+        # Duplicate appeal while pending should fail
+        ok2, msg2 = StudentService.create_grade_appeal(student.id, subj.id, sem.id, 'Nộp thêm lý do.')
+        self.assertFalse(ok2)
 
 
 if __name__ == '__main__':

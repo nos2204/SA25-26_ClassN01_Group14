@@ -106,3 +106,28 @@ def export_transcript_pdf(student_id):
     filename = f"bangdiem_{student.student_code}.pdf"
     return Response(pdf_bytes, mimetype='application/pdf',
                     headers={'Content-Disposition': f'attachment; filename={filename}'})
+
+
+@grades_bp.route('/grades/appeal', methods=['POST'], endpoint='submit_grade_appeal')
+@token_required
+def submit_grade_appeal():
+    if session.get('role') != 'student':
+        from flask import abort
+        abort(403)
+    from persistence.models import UserModel
+    user = UserModel.query.filter_by(username=session.get('username')).first()
+    if not user or not user.student_id:
+        flash('Tài khoản chưa liên kết sinh viên!', 'danger')
+        return redirect(url_for('dashboard'))
+
+    subject_id = request.form.get('subject_id', type=int)
+    semester_id = request.form.get('semester_id', type=int)
+    reason = request.form.get('reason', '').strip()
+
+    if not subject_id or not semester_id or not reason:
+        flash('Vui lòng điền đầy đủ lý do phúc khảo!', 'danger')
+        return redirect(url_for('manage_grades', student_id=user.student_id))
+
+    ok, msg = StudentService.create_grade_appeal(user.student_id, subject_id, semester_id, reason)
+    flash(msg, 'success' if ok else 'warning')
+    return redirect(url_for('manage_grades', student_id=user.student_id, semester_id=semester_id))

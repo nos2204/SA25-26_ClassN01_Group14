@@ -27,12 +27,23 @@ def add_subject():
     if SubjectModel.query.filter_by(subject_code=code).first():
         flash(f'Mã môn học "{code}" đã tồn tại!', 'danger')
         return redirect(url_for('subjects_manager'))
+
+    pw = float(request.form.get('progress_weight', 0.4) or 0.4)
+    ew = float(request.form.get('exam_weight', 0.6) or 0.6)
+
     subject = SubjectModel(
-        subject_code  = code,
-        subject_name  = request.form.get('subject_name', '').strip(),
-        credits       = int(request.form.get('credits', 3)),
-        department_id = request.form.get('department_id') or None,
+        subject_code    = code,
+        subject_name    = request.form.get('subject_name', '').strip(),
+        credits         = int(request.form.get('credits', 3)),
+        department_id   = request.form.get('department_id') or None,
+        progress_weight = pw,
+        exam_weight     = ew,
     )
+    prereq_ids = request.form.getlist('prerequisites', type=int)
+    if prereq_ids:
+        prereqs = SubjectModel.query.filter(SubjectModel.id.in_(prereq_ids)).all()
+        subject.prerequisites = prereqs
+
     db.session.add(subject)
     db.session.commit()
     flash('Đã thêm môn học!', 'success')
@@ -47,6 +58,16 @@ def edit_subject(subject_id):
     subject.subject_name  = request.form.get('subject_name', subject.subject_name).strip()
     subject.credits       = int(request.form.get('credits', subject.credits))
     subject.department_id = request.form.get('department_id') or None
+    if 'progress_weight' in request.form:
+        subject.progress_weight = float(request.form.get('progress_weight', 0.4) or 0.4)
+    if 'exam_weight' in request.form:
+        subject.exam_weight = float(request.form.get('exam_weight', 0.6) or 0.6)
+
+    prereq_ids = request.form.getlist('prerequisites', type=int)
+    if prereq_ids is not None:
+        prereqs = SubjectModel.query.filter(SubjectModel.id.in_(prereq_ids)).all()
+        subject.prerequisites = [p for p in prereqs if p.id != subject_id]
+
     db.session.commit()
     flash('Đã cập nhật môn học!', 'success')
     return redirect(url_for('subjects_manager'))
@@ -364,3 +385,29 @@ def export_excel():
     temp.close()
     StudentService.export_students_to_excel(temp.name, semester_id=sem_id)
     return send_file(temp.name, as_attachment=True, download_name='baocao_sinhvien.xlsx')
+
+
+# ===================== KHÓA ĐIỂM & PHÚC KHẢO =====================
+@admin_bp.route('/appeals', endpoint='grade_appeals_manager')
+@token_required
+@admin_required
+def grade_appeals_manager():
+    from persistence.models import GradeAppealModel
+    appeals = GradeAppealModel.query.order_by(GradeAppealModel.created_at.desc()).all()
+    return render_template('appeals.html', appeals=appeals)
+
+
+@admin_bp.route('/appeals/<int:appeal_id>/process', methods=['POST'], endpoint='process_grade_appeal')
+@token_required
+@admin_required
+def process_grade_appeal(appeal_id):
+    from persistence.models import GradeAppealModel
+    appeal = GradeAppealModel.query.get_or_404(appeal_id)
+    status = request.form.get('status', 'approved')
+    response_text = request.form.get('response', '').strip()
+    appeal.status = status
+    appeal.response = response_text
+    db.session.commit()
+    flash('Đã xử lý đơn phúc khảo!', 'success')
+    return redirect(url_for('grade_appeals_manager'))
+
